@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Mandal Level Student Marks Dashboard</title>
+<meta name="theme-color" content="#4f81bd">
+<link rel="manifest" href="manifest.json">
+    <!-- Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Add this before your script -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <style>
+        body {
+            font-family: Calibri;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+
+        h2 {
+            background: #4f81bd;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            background: white;
+            font-size: 14px;
+        }
+
+        th,
+        td {
+            border: 1px solid #999;
+            padding: 6px;
+            text-align: center;
+        }
+
+        thead {
+            background: #ddd;
+        }
+
+        .green {
+            background: #63be7b;
+        }
+
+        .yellow {
+            background: #ffeb84;
+        }
+
+        .red {
+            background: #f8696b;
+        }
+
+        tfoot {
+            font-weight: bold;
+            background: #eee;
+        }
+
+        button,
+        select {
+            padding: 6px;
+            margin: 4px;
+        }
+
+        pre {
+            background: #000;
+            color: #0f0;
+            padding: 10px;
+            max-height: 250px;
+            overflow: auto;
+            font-size: 12px;
+        }
+
+        #dashboardFlex {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        #chartBox {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        #lowPerfBox {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        #summaryCards {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .card {
+            flex: 1;
+            min-width: 120px;
+            background: white;
+            border-radius: 6px;
+            padding: 10px;
+            text-align: center;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .card span {
+            font-size: 13px;
+            color: #555;
+        }
+
+        .card h3 {
+            margin: 5px 0;
+            font-size: 22px;
+        }
+
+        .fade {
+            opacity: 1;
+            transition: 0.4s;
+        }
+
+        .fade.hide {
+            opacity: 0;
+            display: none;
+        }
+
+        .fadeBtn {
+            opacity: 0.4;
+            transition: 0.3s;
+        }
+
+        button {
+            transition: 0.3s;
+        }
+    </style>
+</head>
+
+<body>
+
+    <input type="file" id="excelFile">
+    <button onclick="downloadPDF()">Download PDF</button>
+    <button onclick="downloadImage()">Download Image</button>
+    <!-- GROUP DROPDOWN -->
+    <select id="groupSelect" onchange="applyGroupFilter()">
+        <option value="all">All Schools</option>
+        <option value="g1">Yerrabelly Complex</option>
+        <option value="g2">Nidamanur Complex</option>
+        <option value="g3">Thummadam Complex</option>
+    </select>
+    <button id="btnTable" onclick="toggleSection('reportTable','btnTable')">Table</button>
+    <button id="btnChart" onclick="toggleSection('chartBox','btnChart')">Chart</button>
+    <button id="btnLow" onclick="toggleSection('lowPerfBox','btnLow')">Low Perf</button>
+    <button id="btnJson" onclick="toggleSection('jsonBox','btnJson')">JSON</button>
+    <div id="jsonBox" class="fade hide">
+
+        <h3>Excel JSON Preview</h3>
+
+        <pre id="jsonData"></pre>
+
+    </div>
+    <div id="reportArea">
+
+        <h2>Mandal Level Student Marks Data Entry Status Report</h2>
+        <div id="summaryCards">
+
+            <div class="card">
+                <span>FA1</span>
+                <h3 id="c_fa1">0%</h3>
+            </div>
+
+            <div class="card">
+                <span>FA2</span>
+                <h3 id="c_fa2">0%</h3>
+            </div>
+
+            <div class="card">
+                <span>FA3</span>
+                <h3 id="c_fa3">0%</h3>
+            </div>
+
+            <div class="card">
+                <span>FA4</span>
+                <h3 id="c_fa4">0%</h3>
+            </div>
+
+            <div class="card">
+                <span>SA1</span>
+                <h3 id="c_sa1">0%</h3>
+            </div>
+
+            <div class="card">
+                <span>SA2</span>
+                <h3 id="c_sa2">0%</h3>
+            </div>
+
+            <div class="card overall">
+                <span>Overall</span>
+                <h3 id="c_overall">0%</h3>
+            </div>
+
+        </div>
+        <table id="reportTable" class="fade">
+
+            <thead>
+
+                <tr>
+                    <th rowspan="2">S.No</th>
+                    <th rowspan="2">Schools</th>
+                    <th rowspan="2">No of Children</th>
+                    <th colspan="2">FA1</th>
+                    <th colspan="2">FA2</th>
+                    <th colspan="2">FA3</th>
+                    <th colspan="2">FA4</th>
+                    <th colspan="2">SA1</th>
+                    <th rowspan="2">No of Children for SA2</th>
+                    <th colspan="2">SA2</th>
+                </tr>
+
+                <tr>
+                    <th>Data</th>
+                    <th>%</th>
+                    <th>Data</th>
+                    <th>%</th>
+                    <th>Data</th>
+                    <th>%</th>
+                    <th>Data</th>
+                    <th>%</th>
+                    <th>Data</th>
+                    <th>%</th>
+                    <th>Data</th>
+                    <th>%</th>
+                </tr>
+
+            </thead>
+
+            <tbody></tbody>
+
+            <tfoot id="totalRow"></tfoot>
+
+        </table>
+
+
+        <div id="dashboardFlex">
+
+            <div id="chartBox" class="fade">
+                <canvas id="chart"></canvas>
+            </div>
+
+            <div id="lowPerfBox" class="fade">
+
+                <h3>Low Performance Schools (Average % below threshold)</h3>
+
+                <label>Threshold (%)</label>
+                <input type="number" id="lowPerfThreshold" value="80">
+                <button onclick="updateLowPerf(currentData)">Submit</button>
+
+                <table id="lowPerfTable">
+
+                    <thead>
+                        <tr>
+                            <th>S.No</th>
+                            <th>School</th>
+                            <th>Average %</th>
+                        </tr>
+                    </thead>
+
+                    <tbody></tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+
+        let data;
+        let chartObj;
+        let currentData = [];
+
+        // MANUAL GROUPS (EDIT HERE)
+        const group1 = [36291700101, 36291700102, 36291700104, 36291700105, 36291700201, 36291700203, 36291700204, 36291700301, 36291700302,
+            36291700402, 36291700403, 36291700404, 36291700405, 36291700501, 36291700504, 36291700505, 36291700829];
+        const group2 = [36291700502, 36291700701, 36291700702, 36291700703, 36291700801, 36291700815, 36291700816, 36291700821, 36291700825,
+            36291700827, 36291700830, 36291700831, 36291700901, 36291701001, 36291701101, 36291701103, 36291701104, 36291701301];
+        const group3 = [36291700601, 36291701201, 36291701203, 36291701204, 36291701205, 36291701206, 36291701207, 36291701208, 36291701210,
+            36291701211, 36291701214, 36291701215, 36291701216, 36291701217, 36291701222, 36291701223, 36291701402, 36291701501, 36292900504];
+
+        // Initial header setup
+        window.addEventListener("DOMContentLoaded", () => {
+            let header = document.querySelector("#reportArea h2");
+            header.textContent = `Mandal Level Student Marks Data Entry Status Report - ${getCurrentDate()}`;
+        });
+
+
+        function percent(a, b) {
+            if (!b) return 0;
+            return ((a / b) * 100).toFixed(2);
+        }
+
+        function color(p) {
+            p = parseFloat(p);
+            if (p >= 100) return "green";
+            if (p >= 80) return "yellow";
+            return "red";
+        }
+
+        document.getElementById("excelFile").addEventListener("change", function (e) {
+            // Clear old data
+            document.querySelector("#reportTable tbody").innerHTML = "";
+            document.getElementById("totalRow").innerHTML = "";
+            document.querySelector("#lowPerfTable tbody").innerHTML = "";
+            if (chartObj) chartObj.destroy();
+            document.getElementById("jsonData").textContent = "";
+
+            const reader = new FileReader();
+
+            reader.onload = function (evt) {
+                const fileData = new Uint8Array(evt.target.result);
+                const workbook = XLSX.read(fileData, { type: 'array' });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                data = XLSX.utils.sheet_to_json(sheet, { range: 1 });
+
+                document.getElementById("jsonData").textContent = JSON.stringify(data, null, 2);
+                currentData = data;
+
+                // Generate report & chart for new data
+                generateReport(currentData);
+
+                updateLowPerf(currentData);
+            }
+
+            reader.readAsArrayBuffer(e.target.files[0]);
+        });
+
+        function toggleSection(sectionId, buttonId) {
+
+            let el = document.getElementById(sectionId);
+            let btn = document.getElementById(buttonId);
+
+            if (el.classList.contains("hide")) {
+
+                el.classList.remove("hide");
+                btn.classList.remove("fadeBtn");
+
+            } else {
+
+                el.classList.add("hide");
+                btn.classList.add("fadeBtn");
+
+            }
+
+        }
+
+        function generateReport(dataset) {
+
+            let tbody = document.querySelector("#reportTable tbody");
+
+            tbody.innerHTML = "";
+
+            let totalChildren = 0, tfa1 = 0, tfa2 = 0, tfa3 = 0, tfa4 = 0, tsa1 = 0, tsa2Children = 0, tsa2 = 0;
+
+            dataset.forEach((row, i) => {
+
+                let cols = Object.values(row);
+                // Skip empty or Total row
+                if (!cols[0] || cols[0].toString().toLowerCase().includes("total")) return;
+                if (!cols[1]) return;
+
+                let school = cols[1];
+
+                let children = Number(cols[2]);
+
+                let fa1 = Number(cols[3]);
+                let fa2 = Number(cols[4]);
+                let fa3 = Number(cols[5]);
+                let fa4 = Number(cols[6]);
+                let sa1 = Number(cols[7]);
+                let sa2Children = Number(cols[8]);
+                let sa2 = Number(cols[9]);
+
+                let p1 = percent(fa1, children);
+                let p2 = percent(fa2, children);
+                let p3 = percent(fa3, children);
+                let p4 = percent(fa4, children);
+                let p5 = percent(sa1, children);
+                let p6 = percent(sa2, sa2Children);
+
+                tbody.innerHTML += `
+<tr>
+<td>${i + 1}</td>
+<td style="text-align:left">${school}</td>
+<td>${children}</td>
+
+<td>${fa1}</td><td class="${color(p1)}">${p1}</td>
+<td>${fa2}</td><td class="${color(p2)}">${p2}</td>
+<td>${fa3}</td><td class="${color(p3)}">${p3}</td>
+<td>${fa4}</td><td class="${color(p4)}">${p4}</td>
+<td>${sa1}</td><td class="${color(p5)}">${p5}</td>
+<td>${sa2Children}</td>
+<td>${sa2}</td><td class="${color(p6)}">${p6}</td>
+
+</tr>
+`;
+
+                totalChildren += children;
+                tfa1 += fa1;
+                tfa2 += fa2;
+                tfa3 += fa3;
+                tfa4 += fa4;
+                tsa1 += sa1;
+                tsa2Children += sa2Children;
+                tsa2 += sa2;
+
+            });
+
+            document.getElementById("totalRow").innerHTML = `
+<tr>
+<td colspan="2">Total</td>
+<td>${totalChildren}</td>
+
+<td>${tfa1}</td><td>${percent(tfa1, totalChildren)}</td>
+<td>${tfa2}</td><td>${percent(tfa2, totalChildren)}</td>
+<td>${tfa3}</td><td>${percent(tfa3, totalChildren)}</td>
+<td>${tfa4}</td><td>${percent(tfa4, totalChildren)}</td>
+<td>${tsa1}</td><td>${percent(tsa1, totalChildren)}</td>
+<td>${tsa2Children}</td>
+<td>${tsa2}</td><td>${percent(tsa2, tsa2Children)}</td>
+</tr>
+`;
+
+            createChart(tfa1, tfa2, tfa3, tfa4, tsa1, tsa2, totalChildren, tsa2Children);
+            updateCards(tfa1, tfa2, tfa3, tfa4, tsa1, tsa2, totalChildren, tsa2Children);
+        }
+
+
+        function updateLowPerf(dataset = null) {
+
+            if (!data) return;
+
+            let source = dataset || data;
+
+            let threshold = Number(document.getElementById("lowPerfThreshold").value);
+
+            let tbody = document.querySelector("#lowPerfTable tbody");
+
+            tbody.innerHTML = "";
+
+            source.forEach(row => {
+
+                let cols = Object.values(row);
+                // Skip empty or Total row
+                if (!cols[0] || cols[0].toString().toLowerCase().includes("total")) return;
+                if (!cols[1]) return;
+
+                let school = cols[1];
+
+                let children = Number(cols[2]);
+
+                let fa1 = Number(cols[3]);
+                let fa2 = Number(cols[4]);
+                let fa3 = Number(cols[5]);
+                let fa4 = Number(cols[6]);
+                let sa1 = Number(cols[7]);
+                let sa2Children = Number(cols[8]);
+                let sa2 = Number(cols[9]);
+
+                let avg = (
+
+                    percent(fa1, children) * 1 +
+                    percent(fa2, children) * 1 +
+                    percent(fa3, children) * 1 +
+                    percent(fa4, children) * 1 +
+                    percent(sa1, children) * 1 +
+                    percent(sa2, sa2Children) * 1
+
+                ) / 6;
+
+                avg = avg.toFixed(2);
+
+                if (avg < threshold) {
+
+                    tbody.innerHTML += `
+<tr style="color:red">
+<td>0</td>
+<td style="text-align:left">${school}</td>
+<td>${avg}</td>
+</tr>
+`;
+
+                }
+
+            });
+
+            let rows = [...tbody.querySelectorAll("tr")];
+
+            rows.sort((a, b) => a.cells[2].innerText - b.cells[2].innerText);
+
+            rows.forEach((r, i) => {
+
+                r.cells[0].innerText = i + 1;
+
+                tbody.appendChild(r);
+
+            });
+
+        }
+        // Function to get current date in DD-MM-YYYY format
+        function getCurrentDate() {
+            const today = new Date();
+            const dd = String(today.getDate()).padStart(2, '0');
+            const mm = String(today.getMonth() + 1).padStart(2, '0'); // Months start at 0
+            const yyyy = today.getFullYear();
+            return `${dd}/${mm}/${yyyy}`;
+        }
+
+
+        // Update header on group selection
+        function applyGroupFilter() {
+            if (!data) return;
+
+            let sel = document.getElementById("groupSelect").value;
+            let codes = [];
+
+            if (sel === "g1") codes = group1.map(String);
+            if (sel === "g2") codes = group2.map(String);
+            if (sel === "g3") codes = group3.map(String);
+
+            let filtered;
+            if (sel === "all") {
+                filtered = data;
+                document.querySelector("#reportArea h2").textContent = `Mandal Level Student Marks Data Entry Status Report - ${getCurrentDate()}`;
+            } else {
+                filtered = data.filter(row => {
+                    let cols = Object.values(row);
+                    let school = (cols[1] || "").toString().trim();
+                    let diseCode = school.split("-")[0].trim();
+                    return codes.includes(diseCode);
+                });
+
+                // Example: show group name in header
+                let groupName = document.querySelector("#groupSelect option:checked").text;
+                document.querySelector("#reportArea h2").textContent = `${groupName} - Student Marks Data Entry Status Report - ${getCurrentDate()}`;
+            }
+
+            currentData = filtered;
+            generateReport(currentData);
+            updateLowPerf(currentData);
+        }
+
+        function createChart(fa1, fa2, fa3, fa4, sa1, sa2, total, sa2total) {
+            let ctx = document.getElementById("chart");
+
+            if (chartObj) {
+                chartObj.destroy();
+            }
+
+            let percentages = [
+                (fa1 / total * 100),
+                (fa2 / total * 100),
+                (fa3 / total * 100),
+                (fa4 / total * 100),
+                (sa1 / total * 100),
+                (sa2 / sa2total * 100)
+            ];
+
+            let colors = percentages.map(p => {
+                p = parseFloat(p);
+                if (p >= 90) return "#63be7b";     // green
+                else if (p >= 70) return "#ffeb84"; // yellow
+                else return "#f8696b";             // red
+
+            });
+
+            chartObj = new Chart(ctx, {
+                type: "bar",
+                data: {
+                    labels: ["FA1", "FA2", "FA3", "FA4", "SA1", "SA2"],
+                    datasets: [{
+                        label: "Data Entry %",
+                        data: percentages.map(p => p.toFixed(2)),
+                        backgroundColor: colors
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false },
+                        datalabels: {
+                            color: '#000',
+                            font: { weight: 'bold', size: 12 },
+                            formatter: function (value) {
+                                return value + "%";
+                            },
+                            anchor: 'end',
+                            align: function (context) {
+                                let val = context.dataset.data[context.dataIndex];
+                                // If value is high, show inside bar
+                                return val > 90 ? 'start' : 'end';
+                            },
+                            clamp: true // ensures label stays inside the canvas
+                        }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, max: 100, title: { display: true, text: 'Percentage (%)' } }
+                    }
+                },
+                plugins: [ChartDataLabels]
+            });
+        }
+        function cardColor(p) {
+
+            p = parseFloat(p);
+
+            if (p >= 90) return "#63be7b";      // green
+            if (p >= 70) return "#ffeb84";      // yellow
+            return "#f8696b";                  // red
+
+        }
+        function updateCards(fa1, fa2, fa3, fa4, sa1, sa2, total, sa2total) {
+
+            let p1 = percent(fa1, total);
+            let p2 = percent(fa2, total);
+            let p3 = percent(fa3, total);
+            let p4 = percent(fa4, total);
+            let p5 = percent(sa1, total);
+            let p6 = percent(sa2, sa2total);
+
+            let overall = (
+                parseFloat(p1) +
+                parseFloat(p2) +
+                parseFloat(p3) +
+                parseFloat(p4) +
+                parseFloat(p5) +
+                parseFloat(p6)
+            ) / 5;
+
+            document.getElementById("c_fa1").innerText = p1 + "%";
+            document.getElementById("c_fa2").innerText = p2 + "%";
+            document.getElementById("c_fa3").innerText = p3 + "%";
+            document.getElementById("c_fa4").innerText = p4 + "%";
+            document.getElementById("c_sa1").innerText = p5 + "%";
+            document.getElementById("c_sa2").innerText = p6 + "%";
+            document.getElementById("c_overall").innerText = overall.toFixed(2) + "%";
+
+
+            /* background colors */
+
+            document.getElementById("c_fa1").parentElement.style.background = cardColor(p1);
+            document.getElementById("c_fa2").parentElement.style.background = cardColor(p2);
+            document.getElementById("c_fa3").parentElement.style.background = cardColor(p3);
+            document.getElementById("c_fa4").parentElement.style.background = cardColor(p4);
+            document.getElementById("c_sa1").parentElement.style.background = cardColor(p5);
+            document.getElementById("c_sa2").parentElement.style.background = cardColor(p6);
+            document.getElementById("c_overall").parentElement.style.background = cardColor(overall);
+
+
+        }
+
+
+        // Download only from dashboardWrapper downwards
+        function downloadImage() {
+
+            const dashboard = document.getElementById("reportArea");
+
+            html2canvas(dashboard, {
+                scale: 3,
+                useCORS: true,
+                width: dashboard.scrollWidth,
+                height: dashboard.scrollHeight,
+                windowWidth: dashboard.scrollWidth,
+                windowHeight: dashboard.scrollHeight
+            }).then(canvas => {
+
+                let link = document.createElement("a");
+                link.download = "cce_marks_report.png";
+                link.href = canvas.toDataURL("image/png", 1.0);
+                link.click();
+
+            });
+
+        }
+
+        function downloadPDF() {
+
+            const { jsPDF } = window.jspdf;
+
+            const dashboard = document.getElementById("reportArea");
+
+            html2canvas(dashboard, {
+                scale: 2,
+                useCORS: true
+            }).then(canvas => {
+
+                let imgData = canvas.toDataURL("image/png");
+
+                // A4 Landscape
+                let pdf = new jsPDF("l", "mm", "a4");
+
+                let pageWidth = pdf.internal.pageSize.getWidth();
+                let pageHeight = pdf.internal.pageSize.getHeight();
+
+                let imgWidth = pageWidth;
+                let imgHeight = canvas.height * imgWidth / canvas.width;
+
+                let heightLeft = imgHeight;
+                let position = 0;
+
+                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+
+                while (heightLeft > 0) {
+
+                    position = heightLeft - imgHeight;
+
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+
+                    heightLeft -= pageHeight;
+
+                }
+
+                pdf.save("cce_marks_report.pdf");
+
+            });
+
+        }
+    </script>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./service-worker.js')
+    .then(() => console.log('SW registered'))
+    .catch(err => console.log('SW registration failed:', err));
+}+41
+</script>
+</body>
+
+</html>
