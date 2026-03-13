@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>My MIS Tools</title>
+
+<style>
+
+body{
+font-family:Arial;
+background:#f1f3f9;
+margin:0;
+}
+
+.header{
+background:#2c7be5;
+color:white;
+padding:15px;
+text-align:center;
+font-size:22px;
+}
+
+.container{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+gap:20px;
+padding:20px;
+}
+
+.card{
+background:white;
+border-radius:12px;
+padding:40px 20px;
+text-align:center;
+font-size:18px;
+cursor:pointer;
+box-shadow:0 4px 10px rgba(0,0,0,.1);
+transition:.3s;
+}
+
+.card:hover{
+transform:scale(1.05);
+}
+
+.icon{
+font-size:45px;
+margin-bottom:10px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="header">
+My MIS Tools
+</div>
+
+<div class="container">
+
+<div class="card" onclick="openPage('teachers.html')">
+<div class="icon">📊</div>
+Teachers Data Report
+</div>
+
+<div class="card" onclick="openPage('cce.html')">
+<div class="icon">📋</div>
+CCE Marks Report
+</div>
+
+<div class="card" onclick="openPage('frs.html')">
+<div class="icon">🏫</div>
+DSE FRS Reports
+</div>
+
+</div>
+
+<script>
+
+function openPage(page){
+window.location.href = page
+}
+
+</script>
+
+</body>
+</html>
