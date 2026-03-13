@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Super MIS Pro Dashboard with Local Holiday</title>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<style>
+body {font-family:Arial; background:#eef3f8; margin:20px;}
+.controls{margin-bottom:10px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+select,input,button{padding:6px 10px;border-radius:4px;border:1px solid #ccc;}
+button{background:#003366;color:white;cursor:pointer;}
+button.inactive{background:gray;}
+.title{background:#003366;color:white;padding:15px;font-size:24px;text-align:center;font-weight:bold;margin-bottom:10px;}
+.cards{display:flex;gap:15px;margin-bottom:15px;flex-wrap:wrap;}
+.card{flex:1;background:white;padding:15px;border-radius:6px;box-shadow:0 0 6px rgba(0,0,0,0.2);text-align:center;font-size:18px;}
+table{border-collapse:collapse;width:100%;margin-top:10px;background:white;}
+th,td{border:1px solid #ccc;padding:6px;text-align:center;}
+th{background:#003366;color:white;}
+.section{margin-top:25px;}
+canvas{width:100% !important;height:300px !important;background:white;border-radius:6px;padding:10px;}
+.flex-row{display:flex;gap:20px;flex-wrap:nowrap;}
+.flex-row .small{flex:1;min-width:300px;}
+.late{color:red;font-weight:bold;}
+.highlight-holiday{background:#fff8c6;}
+#card_absent{color: red;}
+#card_present{color: green;}
+#absentTable{color: red;}
+.controls{
+position:sticky;
+top:0;
+z-index:1000;
+background:#eef3f8;
+}
+</style>
+</head>
+<body>
+
+<!-- Controls -->
+<div class="controls">
+<input type="file" id="excelFile">
+<select id="districtFilter"><option value="ALL">All Districts</option></select>
+<select id="clusterFilter"><option value="ALL">All Clusters</option></select>
+<input type="text" id="searchBox" placeholder="Search Staff">
+<button onclick="downloadImage()">Download Image</button>
+<button onclick="downloadPDF()">Download PDF</button>
+<button id="btnMain" onclick="toggle('mainSection', 'btnMain')">Main Table</button>
+<button id="btnCharts" onclick="toggle('chartsSection','btnCharts')">Charts</button>
+<button id="btnAbsent" onclick="toggle('absentBox','btnAbsent')">Absent</button>
+<button id="btnLeave" onclick="toggle('leaveBox','btnLeave')">Leave</button>
+<select id="lateFilter" onchange="toggleLateOption()">
+<option value="none">Late By</option>
+<option value="time">Select Time</option>
+</select>
+<input type="time" id="lateTime" value="11:00" style="display:none;" onchange="render()">
+<button id="toggleHolidayBtn" onclick="toggleHoliday()">Show Local Holiday Schools</button>
+</div>
+
+<!-- Dashboard wrapper (from title downwards) -->
+<div id="dashboardWrapper">
+
+<!-- Title -->
+<div class="title" id="title">Super MIS Attendance Dashboard</div>
+
+<!-- Summary Cards -->
+<div class="cards">
+<div class="card" id="card_total">Total Staff<br><b id="total">0</b></div>
+<div class="card" id="card_present">Present Staff<br><b id="present">0</b><b id="presentPercent">0%</b></div>
+<div class="card" id="card_absent">Absent Staff<br><b id="absent">0</b></div>
+<div class="card" id="card_leave">Staff on Leave<br><b id="leave">0</b></div>
+<div class="card" id="card_holiday">Local Holiday Schools<br><b id="holidayCount">0</b></div>
+<div class="card" id="card_holiday_staff">Holiday Staff<br><b id="holidayStaff">0</b></div>
+
+</div>
+
+<!-- Local Holiday Table -->
+<div class="section" id="holidayBox" style="display:none;">
+<h3>Schools with Local Holiday</h3>
+<table id="holidayTable">
+<thead>
+<tr><th>S.No</th><th>Cluster Name</th><th>School Name</th><th>Status</th></tr>
+</thead>
+<tbody></tbody>
+</table>
+</div>
+
+<!-- Main Table -->
+<div class="section" id="mainSection">
+<table id="mainTable">
+<thead><tr><th>S.No</th><th>Cluster</th><th>School</th><th>Staff</th><th>Attendance</th><th>In Time</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+
+<!-- Charts Horizontal -->
+<div class="section flex-row" id="chartsSection">
+<div class="small"><canvas id="pieChart"></canvas></div>
+<div class="small"><canvas id="barChart"></canvas></div>
+<div class="small"><canvas id="clusterChart"></canvas></div>
+</div>
+
+<!-- Absent / Leave / Late Tables -->
+<div class="section" id="absentBox">
+<h3>Absent Staff</h3>
+<table id="absentTable">
+<thead><tr><th>S.No</th><th>School</th><th>Staff</th><th>Status</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+
+<div class="section" id="leaveBox">
+<h3>Leave Staff</h3>
+<table id="leaveTable">
+<thead><tr><th>S.No</th><th>School</th><th>Staff</th><th>Status</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+
+<div class="section" id="lateBox" style="display:none;">
+<h3 id="lateTitle">Present After 11:00 AM</h3>
+<table id="lateTable">
+<thead><tr><th>S.No</th><th>School</th><th>Staff</th><th>In Time</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
+
+</div> <!-- dashboardWrapper ends -->
+
+<script>
+    function toggleLateOption(){
+    let val = document.getElementById("lateFilter").value;
+    let timeInput = document.getElementById("lateTime");
+
+    if(val=="time"){
+        timeInput.style.display="inline-block";
+    }else{
+        timeInput.style.display="none";
+    }
+    render();
+}
+let rawData=[], pieChart, barChart, clusterChart;
+
+// Excel upload
+document.getElementById("excelFile").addEventListener("change", function(e){
+    let reader = new FileReader();
+    reader.onload = function(e){
+        let data = new Uint8Array(e.target.result);
+        let wb = XLSX.read(data, {type:"array"});
+        let sheet = wb.Sheets[wb.SheetNames[0]];
+        rawData = XLSX.utils.sheet_to_json(sheet);
+        populateFilters();
+        render();
+    };
+    reader.readAsArrayBuffer(e.target.files[0]);
+});
+
+// Populate filters
+function populateFilters(){
+    let districts = [...new Set(rawData.map(x=>x["District Name"]))];
+    let clusters = [...new Set(rawData.map(x=>x["Cluster Name"]))];
+    districts.forEach(d=>districtFilter.innerHTML += `<option>${d}</option>`);
+    clusters.forEach(c=>clusterFilter.innerHTML += `<option>${c}</option>`);
+}
+
+// Filters
+districtFilter.onchange = render;
+clusterFilter.onchange = render;
+searchBox.onkeyup = render;
+
+// Main render
+function render(){
+    let d = districtFilter.value;
+    let c = clusterFilter.value;
+    let s = searchBox.value.toLowerCase();
+    let data = rawData.filter(x=>
+        (d=="ALL"||x["District Name"]==d) &&
+        (c=="ALL"||x["Cluster Name"]==c) &&
+        x["Staff Name"].toLowerCase().includes(s)
+    );
+// Sort by In Time (ascending)
+data.sort((a,b)=>{
+    let t1 = a["In Time"] || "23:59";
+    let t2 = b["In Time"] || "23:59";
+    return t1.localeCompare(t2);
+});
+    let now = new Date();
+
+let date = now.toLocaleDateString("en-GB",{
+    day:"2-digit",
+    month:"short",
+    year:"numeric"
+});
+
+let time = now.toLocaleTimeString("en-IN",{
+    hour:"2-digit",
+    minute:"2-digit"
+});
+
+title.innerText = (c=="ALL"?"Mandal Level":c) + 
+" DSE-FRS Staff Attendance Report - " + date + " | " + time;
+
+    let tbody = document.querySelector("#mainTable tbody"); tbody.innerHTML="";
+    let p=0,a=0,l=0;
+    let abs=[], lev=[], late=[], holidayMap = {};
+let holidayStaffCount = 0;
+    let clusterMap = {};
+let clusterPresentMap = {};
+    data.forEach((r,i)=>{
+        let attendanceRaw = (r["Attendance"]||"").trim();
+        let attendance = attendanceRaw.toLowerCase();
+clusterMap[r["Cluster Name"]] = (clusterMap[r["Cluster Name"]]||0)+1;
+
+if(attendance=="present"){
+    clusterPresentMap[r["Cluster Name"]] = (clusterPresentMap[r["Cluster Name"]]||0)+1;
+}
+        tbody.innerHTML += `<tr>
+            <td>${i+1}</td>
+            <td>${r["Cluster Name"]}</td>
+            <td>${r["School Name"]}</td>
+            <td>${r["Staff Name"]}</td>
+            <td class="${attendance=="present" && (r["In Time"]||"23:59")>(document.getElementById('lateTime')?.value||'11:00')?'late':''}">${attendanceRaw}</td>
+            <td>${r["In Time"]||""}</td>
+        </tr>`;
+
+        let lateLimit = document.getElementById("lateTime")?.value || "11:00";
+        let lateTitle = document.getElementById("lateTitle");
+
+if(document.getElementById("lateFilter").value=="time"){
+    lateTitle.innerText = "Present After " + lateLimit + " AM";
+}else{
+    lateTitle.innerText = "Late Staff";
+}
+
+if(attendance=="present"){
+    p++;
+    if(document.getElementById("lateFilter").value=="time"){
+        if((r["In Time"]||"23:59") > lateLimit){
+            late.push(r);
+        }
+    }
+}
+        if(attendance=="absent"){a++; abs.push(r);}
+        if(attendance=="leave"){l++; lev.push(r);}
+        if(attendance.includes("holiday")){
+    holidayMap[r["Cluster Name"]+"|"+r["School Name"]] = true;
+    holidayStaffCount++;
+}
+
+        clusterMap[r["Cluster Name"]] = (clusterMap[r["Cluster Name"]]||0)+1;
+    });
+
+    // Update cards
+    let holidayCount = Object.keys(holidayMap).length;
+    document.getElementById("total").innerText = data.length;
+    document.getElementById("present").innerText = p;
+    document.getElementById("absent").innerText = a;
+    document.getElementById("leave").innerText = l;
+    document.getElementById("holidayCount").innerText = holidayCount;
+    document.getElementById("holidayStaff").innerText = holidayStaffCount;
+
+    let presentPercent = data.length ? ((p/data.length)*100).toFixed(1) : 0;
+document.getElementById("presentPercent").innerText = " ("+presentPercent + "%)";
+
+let holidayCard = document.getElementById("card_holiday");
+let holidayStaffCard = document.getElementById("card_holiday_staff");
+if(holidayCount==0 && holidayStaffCount==0){
+    holidayCard.style.display="none";
+    holidayStaffCard.style.display="none";
+}else{
+    holidayCard.style.display="block";
+    holidayStaffCard.style.display="block";
+}
+    // Auto-hide holiday table if zero
+    let holidayBox = document.getElementById("holidayBox");
+    let holidayBtn = document.getElementById("toggleHolidayBtn");
+    if(holidayCount > 0){
+        holidayBtn.classList.remove("inactive");
+    } else {
+        holidayBox.style.display = "none";
+        holidayBtn.innerText = "Show Local Holiday Schools";
+        holidayBtn.classList.add("inactive");
+    }
+
+    // Fill tables
+    fillTable("absentTable", abs);
+    fillTable("leaveTable", lev);
+    fillLate(late);
+    let lateBox = document.getElementById("lateBox");
+
+if(document.getElementById("lateFilter").value=="time"){
+    if(late.length > 0){
+        lateBox.style.display="block";
+    }else{
+        lateBox.style.display="none";
+    }
+}else{
+    lateBox.style.display="none";
+}
+    fillHolidayTable(holidayMap);
+
+   drawCharts(p,a,l,clusterMap,clusterPresentMap);
+    
+}
+
+// Fill tables
+function fillTable(id,data){
+
+    data.sort((a,b)=>{
+        let t1 = a["In Time"] || "23:59";
+        let t2 = b["In Time"] || "23:59";
+        return t1.localeCompare(t2);
+    });
+    let tbody = document.querySelector("#"+id+" tbody"); tbody.innerHTML="";
+    data.forEach((r,i)=>{
+        tbody.innerHTML += `<tr>
+            <td>${i+1}</td>
+            <td>${r["School Name"]}</td>
+            <td>${r["Staff Name"]}</td>
+            <td>${r["Attendance"]}</td>
+        </tr>`;
+    });
+}
+
+function fillLate(data){
+
+    let tbody = document.querySelector("#lateTable tbody");
+    tbody.innerHTML="";
+
+    // Sort
+    data.sort((a,b)=>{
+        let t1 = a["In Time"] || "23:59";
+        let t2 = b["In Time"] || "23:59";
+        return t1.localeCompare(t2);
+    });
+
+    let i=1;
+
+    data.forEach((r)=>{
+
+        // hide school 362917
+        if(r["School Name"]=="362917") return;
+console.log(data[0]);
+        tbody.innerHTML += `<tr>
+            <td>${i++}</td>
+            <td>${r["School Name"]}</td>
+            <td>${r["Staff Name"]}</td>
+            <td>${r["In Time"]}</td>
+        </tr>`;
+    });
+}
+function fillHolidayTable(map){
+    let tbody = document.querySelector("#holidayTable tbody"); tbody.innerHTML="";
+    let i=1;
+    Object.keys(map).forEach(key=>{
+        let [cluster, school] = key.split("|");
+        tbody.innerHTML += `<tr class="highlight-holiday">
+            <td>${i++}</td>
+            <td>${cluster}</td>
+            <td>${school}</td>
+            <td>Local Holiday</td>
+        </tr>`;
+    });
+}
+
+// Charts
+function drawCharts(p,a,l,clusterMap,clusterPresentMap){
+    if(pieChart) pieChart.destroy();
+    if(barChart) barChart.destroy();
+    if(clusterChart) clusterChart.destroy();
+
+    pieChart = new Chart(document.getElementById("pieChart"),{
+        type:"pie",
+        data:{labels:["Present","Absent","Leave"], datasets:[{data:[p,a,l],backgroundColor:["green","red","orange"]}]}
+    });
+
+    barChart = new Chart(document.getElementById("barChart"), {
+        type: "bar",
+        data: {
+            labels: ["Present", "Absent", "Leave"],
+            datasets: [{label:"Staff Count", data:[p,a,l], backgroundColor:["green","red","orange"]}]
+        },
+        options:{
+            responsive:true,
+            plugins:{ datalabels:{anchor:'end',align:'end', font:{weight:'bold',size:14}, color:'black', formatter:Math.round } },
+            scales:{ y:{ beginAtZero:true, suggestedMax: Math.max(p,a,l)*1.15 } }
+        },
+        plugins:[ChartDataLabels]
+    });
+
+   let clusters = Object.keys(clusterMap);
+
+let presentPercents = clusters.map(c=>{
+    let total = clusterMap[c] || 0;
+    let present = clusterPresentMap[c] || 0;
+    return total ? ((present/total)*100).toFixed(1) : 0;
+});
+
+clusterChart = new Chart(document.getElementById("clusterChart"), {
+    type: "bar",
+    data: {
+        labels: clusters,
+        datasets: [{
+            label:"Present %",
+            data: presentPercents,
+            backgroundColor:"blue"
+        }]
+    },
+    options:{
+        responsive:true,
+        plugins:{
+            datalabels:{
+                anchor:'end',
+                align:'end',
+                font:{weight:'bold',size:14},
+                color:'black',
+                formatter:(v)=>v+"%"
+            }
+        },
+        scales:{
+            y:{
+                beginAtZero:true,
+                max:100
+            }
+        }
+    },
+    plugins:[ChartDataLabels]
+});
+}
+
+// Toggle tables
+function toggle(id, btnId){
+    let el = document.getElementById(id);
+    let btn = document.getElementById(btnId);
+    if(el.style.display=="none"){ el.style.display="block"; btn.classList.remove("inactive"); 
+         // charts resize fix
+        if(id=="chartsSection"){
+            el.style.display="flex";
+        }
+    }
+    else { el.style.display="none"; btn.classList.add("inactive"); }
+}
+
+function toggleHoliday(){
+    let el=document.getElementById("holidayBox");
+    let btn=document.getElementById("toggleHolidayBtn");
+    if(el.style.display=="none"){ el.style.display="block"; btn.innerText="Hide Local Holiday Schools"; btn.classList.remove("inactive"); }
+    else { el.style.display="none"; btn.innerText="Show Local Holiday Schools"; btn.classList.add("inactive"); }
+}
+
+// Download only from dashboardWrapper downwards
+function downloadImage(){
+
+const dashboard = document.getElementById("dashboardWrapper");
+
+html2canvas(dashboard,{
+scale:3,
+useCORS:true,
+width: dashboard.scrollWidth,
+height: dashboard.scrollHeight,
+windowWidth: dashboard.scrollWidth,
+windowHeight: dashboard.scrollHeight
+}).then(canvas=>{
+
+let link = document.createElement("a");
+link.download = "attendance.png";
+link.href = canvas.toDataURL("image/png",1.0);
+link.click();
+
+});
+
+}
+
+function downloadPDF(){
+
+const { jsPDF } = window.jspdf;
+
+const dashboard = document.getElementById("dashboardWrapper");
+
+html2canvas(dashboard,{
+scale:3,
+useCORS:true,
+width: dashboard.scrollWidth,
+height: dashboard.scrollHeight,
+windowWidth: dashboard.scrollWidth,
+windowHeight: dashboard.scrollHeight
+}).then(canvas=>{
+
+let imgData = canvas.toDataURL("image/png");
+
+let pdf = new jsPDF("p","mm","a4");
+
+let imgWidth = 210;
+let pageHeight = 297;
+
+let imgHeight = canvas.height * imgWidth / canvas.width;
+let heightLeft = imgHeight;
+
+let position = 0;
+
+pdf.addImage(imgData,'PNG',0,position,imgWidth,imgHeight);
+heightLeft -= pageHeight;
+
+while(heightLeft > 0){
+position = heightLeft - imgHeight;
+pdf.addPage();
+pdf.addImage(imgData,'PNG',0,position,imgWidth,imgHeight);
+heightLeft -= pageHeight;
+}
+
+pdf.save("attendance.pdf");
+
+});
+
+}
+
+</script>
+</body>
+</html>
