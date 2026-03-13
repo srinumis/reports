@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+    <meta charset="UTF-8">
+    <title>Advanced MIS Dynamic Teachers Data Table Builder</title>
+
+    <style>
+        body {
+            font-family: Arial;
+            margin: 20px;
+        }
+
+        h2 {
+            text-align: center;
+        }
+
+        .controls {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .controls input,
+        .controls select {
+            padding: 6px;
+            margin: 3px;
+        }
+
+        .checkbox-container {
+            border: 1px solid #ccc;
+            padding: 10px;
+            max-height: 150px;
+            overflow: auto;
+            margin-bottom: 10px;
+        }
+
+        label {
+            display: block;
+            cursor: move;
+            padding: 3px;
+        }
+
+        button {
+            padding: 5px 10px;
+            margin: 3px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            border: 1px solid #aaa;
+            padding: 6px;
+            font-size: 13px;
+        }
+
+        th {
+            background: #2c7be5;
+            color: white;
+            position: sticky;
+            top: 0;
+        }
+
+        tbody tr:nth-child(even) {
+            background: #f2f2f2;
+        }
+
+        .table-box {
+            border: 1px solid #ccc;
+            margin-top: 20px;
+            padding: 10px;
+        }
+
+        .table-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .searchBox {
+            padding: 5px;
+        }
+
+        .summary {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+
+        .card {
+            background: #f2f6ff;
+            border: 1px solid #cbd6ff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        #loadingBox {
+            text-align: center;
+            margin: 20px;
+            font-size: 18px;
+            color: #2c7be5;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 5px solid #ddd;
+            border-top: 5px solid #2c7be5;
+            border-radius: 50%;
+            margin: 10px auto;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <h2>Advanced MIS Dynamic Teachers Data Table Builder</h2>
+
+    <div id="loadingBox">
+        <div class="spinner"></div>
+        <div>Loading Data...</div>
+    </div>
+
+    <input type="text" placeholder="Search Column..." onkeyup="searchColumns(this.value)">
+
+    <button onclick="selectAll()">Select All</button> <button onclick="unselectAll()">Unselect All</button>
+
+    <div class="checkbox-container" id="checkboxArea"></div>
+
+    <div class="controls">
+
+        <input type="text" id="tableTitle" placeholder="Enter Table Title">
+
+        <select id="managementFilter">
+            <option value="all">All Management</option>
+        </select>
+
+        <select id="hmFilter">
+            <option value="all">All HM</option>
+            <option value="Yes">Acting HM</option>
+            <option value="No">Non Acting HM</option>
+        </select>
+
+        <button onclick="createTable()">Create Table</button>
+        <button onclick="exportAllTables()">Export All Tables</button>
+    </div>
+
+    <div id="tablesArea"></div>
+
+    <script>
+
+        let fullData = []
+        let columns = []
+
+        const sheetURL = "https://opensheet.elk.sh/1sVNq8pNMwhHjTdOCXF5H3rWGbUqEs1Jr3AfJhvrf9vA/teachers"
+
+        async function loadData() {
+
+            let res = await fetch(sheetURL)
+            let data = await res.json()
+
+            fullData = data
+            columns = Object.keys(data[0])
+
+            createCheckboxes()
+            createManagementDropdown()
+            loadSavedTables()
+            document.getElementById("loadingBox").style.display = "none"
+        }
+
+        function createCheckboxes() {
+
+            let area = document.getElementById("checkboxArea")
+            area.innerHTML = ""
+
+            columns.forEach(col => {
+
+                area.innerHTML += `
+<label draggable="true">
+<input type="checkbox" value="${col}">
+${col}
+</label>
+`
+
+            })
+
+            enableDrag()
+
+        }
+
+        function selectAll() {
+            document.querySelectorAll("#checkboxArea input").forEach(c => c.checked = true)
+        }
+
+        function unselectAll() {
+            document.querySelectorAll("#checkboxArea input").forEach(c => c.checked = false)
+        }
+
+        function searchColumns(keyword) {
+
+            let labels = document.querySelectorAll("#checkboxArea label")
+
+            labels.forEach(l => {
+
+                if (l.innerText.toLowerCase().includes(keyword.toLowerCase())) {
+                    l.style.display = "inline-block"
+                } else {
+                    l.style.display = "none"
+                }
+
+            })
+
+        }
+
+        function createManagementDropdown() {
+
+            let dropdown = document.getElementById("managementFilter")
+
+            let unique = [...new Set(fullData.map(r => r["School Management"]))]
+
+            unique.forEach(m => {
+
+                let opt = document.createElement("option")
+                opt.value = m
+                opt.textContent = m
+
+                dropdown.appendChild(opt)
+
+            })
+
+        }
+
+        function createTable() {
+
+
+            let title = document.getElementById("tableTitle").value || "Table"
+
+            let management = document.getElementById("managementFilter").value
+            let hm = document.getElementById("hmFilter").value
+
+            let checked = [...document.querySelectorAll("#checkboxArea input:checked")]
+                .map(c => c.value)
+
+            if (checked.length == 0) {
+                alert("Select columns")
+                return
+            }
+
+            let filtered = fullData.filter(row => {
+
+                let m = (management == "all" || row["School Management"] == management)
+                let h = (hm == "all" || row["isActingHM"] == hm)
+
+                return m && h
+
+            })
+
+
+            let id = Date.now()
+
+            let tableData = { id, title, columns: checked, management, hm }
+
+            saveTable(tableData)
+
+            renderTable(tableData, filtered)
+
+        }
+
+        function renderTable(config, data, index) {
+
+            let tableId = "t" + Date.now()
+
+            let html = `
+
+<div class="table-box" data-id="${config.id}">
+
+<div class="table-header">
+
+<h3>${config.title}</h3>
+
+<div>
+
+<input class="searchBox" placeholder="Search"
+onkeyup="searchTable('${tableId}',this.value)">
+
+<button onclick="exportExcel('${tableId}')">Excel</button>
+
+<button onclick="deleteTable(this)">Delete</button>
+
+</div>
+
+</div>
+${createSummary(data)}
+
+<div style="max-height:400px;overflow:auto">
+
+<table id="${tableId}">
+
+<thead>
+<tr>
+${config.columns.map(c => `<th>${c}</th>`).join("")}
+</tr>
+</thead>
+
+<tbody>
+
+${data.map((row, i) => {
+
+                let tr = ""
+
+                config.columns.forEach(col => {
+
+                    if (col == "Sl.No") {
+                        tr += `<td>${i + 1}</td>`
+                    } else {
+                        tr += `<td>${row[col] || ""}</td>`
+                    }
+
+                })
+
+                return `<tr>${tr}</tr>`
+
+            }).join("")}
+
+</tbody>
+
+</table>
+
+</div>
+
+</div>
+`
+
+            document.getElementById("tablesArea").innerHTML += html
+
+        }
+
+        function searchTable(id, keyword) {
+
+            let rows = document.querySelectorAll(`#${id} tbody tr`)
+
+            rows.forEach(r => {
+
+                let text = r.innerText.toLowerCase()
+
+                r.style.display = text.includes(keyword.toLowerCase()) ? "" : "none"
+
+            })
+
+        }
+
+        function exportExcel(tableId) {
+
+            let table = document.getElementById(tableId)
+
+            let wb = XLSX.utils.book_new()
+
+            let ws = XLSX.utils.table_to_sheet(table)
+
+            let range = XLSX.utils.decode_range(ws['!ref'])
+
+            for (let R = range.s.r; R <= range.e.r; ++R) {
+
+                for (let C = range.s.c; C <= range.e.c; ++C) {
+
+                    let cell = ws[XLSX.utils.encode_cell({ r: R, c: C })]
+
+                    if (cell) {
+
+                        cell.s = {
+                            border: {
+                                top: { style: "thin" },
+                                bottom: { style: "thin" },
+                                left: { style: "thin" },
+                                right: { style: "thin" }
+                            }
+                        }
+
+                        if (R == 0) {
+                            cell.s.fill = { fgColor: { rgb: "2C7BE5" } }
+                            cell.s.font = { bold: true, color: { rgb: "FFFFFF" } }
+                        }
+
+                    }
+
+                }
+
+            }
+
+            let cols = []
+
+            for (let C = range.s.c; C <= range.e.c; ++C) {
+                cols.push({ wch: 20 })
+            }
+
+            ws['!cols'] = cols
+
+            ws['!freeze'] = { xSplit: 0, ySplit: 1 }
+
+            XLSX.utils.book_append_sheet(wb, ws, "Report")
+
+            let title = table.closest(".table-box").querySelector("h3").innerText
+
+            XLSX.writeFile(wb, title + ".xlsx")
+
+        }
+
+        function exportAllTables() {
+
+            let tables = document.querySelectorAll("#tablesArea table")
+
+            if (tables.length == 0) {
+                alert("No tables to export")
+                return
+            }
+
+            let wb = XLSX.utils.book_new()
+
+            tables.forEach((table, i) => {
+
+                let ws = XLSX.utils.table_to_sheet(table)
+
+                let range = XLSX.utils.decode_range(ws['!ref'])
+
+                for (let R = range.s.r; R <= range.e.r; ++R) {
+
+                    for (let C = range.s.c; C <= range.e.c; ++C) {
+
+                        let cell = ws[XLSX.utils.encode_cell({ r: R, c: C })]
+
+                        if (cell) {
+
+                            cell.s = {
+                                border: {
+                                    top: { style: "thin" },
+                                    bottom: { style: "thin" },
+                                    left: { style: "thin" },
+                                    right: { style: "thin" }
+                                }
+                            }
+
+                            if (R == 0) {
+                                cell.s.fill = { fgColor: { rgb: "2C7BE5" } }
+                                cell.s.font = { bold: true, color: { rgb: "FFFFFF" } }
+                            }
+
+                        }
+
+                    }
+
+                }
+
+                let cols = []
+
+                for (let C = range.s.c; C <= range.e.c; ++C) {
+                    cols.push({ wch: 20 })
+                }
+
+                ws['!cols'] = cols
+
+                ws['!freeze'] = { xSplit: 0, ySplit: 1 }
+
+                let title = table.closest(".table-box").querySelector("h3").innerText
+
+                XLSX.utils.book_append_sheet(wb, ws, title.substring(0, 30))
+
+            })
+
+            XLSX.writeFile(wb, "MIS_Report.xlsx")
+
+        }
+
+        function deleteTable(btn) {
+
+            if (!confirm("Are you sure you want to permanently delete this table?")) {
+                return
+            }
+
+            let box = btn.closest(".table-box")
+
+            let id = box.dataset.id
+
+            let saved = JSON.parse(localStorage.getItem("misTables") || "[]")
+
+            saved = saved.filter(t => t.id != id)
+
+            localStorage.setItem("misTables", JSON.stringify(saved))
+
+            box.remove()
+
+        }
+
+        function saveTable(data) {
+
+            let saved = JSON.parse(localStorage.getItem("misTables") || "[]")
+
+            saved.push(data)
+
+            localStorage.setItem("misTables", JSON.stringify(saved))
+
+        }
+
+        function loadSavedTables() {
+
+            let saved = JSON.parse(localStorage.getItem("misTables") || "[]")
+
+            saved.forEach((cfg, i) => {
+
+                let filtered = fullData.filter(row => {
+
+                    let m = (cfg.management == "all" || row["School Management"] == cfg.management)
+                    let h = (cfg.hm == "all" || row["isActingHM"] == cfg.hm)
+
+                    return m && h
+
+                })
+
+                renderTable(cfg, filtered, i)
+
+            })
+
+        }
+        function enableDrag() {
+
+            let container = document.getElementById("checkboxArea")
+
+            let drag
+
+            container.addEventListener("dragstart", e => {
+                drag = e.target
+            })
+
+            container.addEventListener("dragover", e => {
+                e.preventDefault()
+            })
+
+            container.addEventListener("drop", e => {
+                if (e.target.tagName === "LABEL") {
+                    container.insertBefore(drag, e.target)
+                }
+            })
+
+        }
+        function createSummary(data) {
+
+            let total = data.length
+
+            let actingHM = data.filter(r => r["isActingHM"] == "Yes").length
+
+            let nonHM = data.filter(r => r["isActingHM"] == "No").length
+
+            let govt = data.filter(r => r["School Management"] == "Government").length
+
+            let private = data.filter(r => r["School Management"] == "Private").length
+
+            return `
+<div class="summary">
+
+<div class="card">Total Rows : ${total}</div>
+
+<div class="card">Acting HM : ${actingHM}</div>
+
+<div class="card">Non Acting HM : ${nonHM}</div>
+
+<div class="card">Govt Schools : ${govt}</div>
+
+<div class="card">Private Schools : ${private}</div>
+
+</div>
+`
+
+        }
+
+        loadData()
+
+    </script>
+
+</body>
+
+</html>
