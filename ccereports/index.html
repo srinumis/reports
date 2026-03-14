@@ -1,1 +1,55 @@
+<!DOCTYPE html>
+<html>
 
+<head>
+    <meta charset="UTF-8">
+    <title>School Data Report</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div class="upload-box">
+        <input type="file" id="excelFile" accept=".xlsx,.xls">
+    </div>
+
+    <div class="controls">
+        <label><input type="checkbox" class="col-toggle" data-col="3" checked> FA1</label>
+        <label><input type="checkbox" class="col-toggle" data-col="5" checked> FA2</label>
+        <label><input type="checkbox" class="col-toggle" data-col="7" checked> FA3</label>
+        <label><input type="checkbox" class="col-toggle" data-col="9" checked> FA4</label>
+        <label><input type="checkbox" class="col-toggle" data-col="11" checked> SA1</label>
+        <label><input type="checkbox" class="col-toggle" data-col="13" checked> SA2</label>
+        <!-- Dropdown for school groups -->
+        <label for="schoolGroup">Select School Group:</label>
+        <select id="schoolGroup">
+            <option value="all">All Schools</option>
+            <option value="1">Yerrabelly Complex</option>
+            <option value="2">Nidamanur Complex</option>
+            <option value="3">Thummadam Complex</option>
+        </select>
+
+        <br><br>
+    </div>
+  <hr><hr>
+<div id="exportButtons" style="margin-bottom:10px;">
+  <button id="exportExcel">Download Excel</button>
+  <button id="exportPDF">Download PDF</button>
+  <button id="exportImage">Download Image</button>
+   <button id="shareWhatsApp">Share to WhatsApp</button>
+</div>
+<div id="exportArea">
+    <br></br>
+    <h2 id="title" style="display:none;">School Assessment Data Report (CCE)</h2>
+    <div id="summaryContainer" style="display:flex; justify-content:center; flex-wrap:wrap; margin-bottom:20px;"></div>
+    <div id="tableContainer"></div>
+<br></br>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="script.js"></script>
+</body>
+
+</html>
