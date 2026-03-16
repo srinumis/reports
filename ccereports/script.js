@@ -65,7 +65,7 @@ function filterAndShowTable() {
         day: '2-digit', month: 'short', year: 'numeric'
     });
 
-    title.innerText = `School Assessment Data Report (${groupName}) - ${dateStr}`;
+    title.innerText = `Data Entry(CCE) Status Report (${groupName}) - ${dateStr}`;
     title.style.display = "block";
 
     if (!allData || allData.length < 3) return;
