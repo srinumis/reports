@@ -100,14 +100,14 @@ function percent(data, total) {
 // ====================
 function getColorClass(value) {
     const num = parseFloat(value); // remove %
-    if (num > 100) return "green";
+    if (num >= 100) return "green";
     if (num >= 80) return "yellow";
     return "red";
 }
 
 function getCardBackground(percentValue) {
     const num = parseFloat(percentValue); // remove % sign
-    if (num > 100) return "#c8f7c5";   // light green
+    if (num >= 100) return "#c8f7c5";   // light green
     if (num >= 80) return "#fff4b3";   // light yellow
     return "#f7c5c5";                  // light red
 }
