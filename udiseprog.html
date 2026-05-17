@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Excel Import Table</title>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<style>
+body{
+  font-family: Arial, sans-serif;
+  background:#f4f4f4;
+  padding:20px;
+}
+
+h2{
+  text-align:center;
+  color:#333;
+}
+
+.upload-box{
+  background:#fff;
+  padding:20px;
+  border-radius:10px;
+  margin-bottom:20px;
+  box-shadow:0 2px 10px rgba(0,0,0,0.1);
+}
+
+input[type="file"]{
+  padding:10px;
+}
+
+.table-container{
+  overflow-x:auto;
+  background:#fff;
+  padding:10px;
+  border-radius:10px;
+  box-shadow:0 2px 10px rgba(0,0,0,0.1);
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  min-width:1200px;
+}
+
+th, td{
+  border:1px solid #ccc;
+  padding:8px;
+  text-align:center;
+  font-size:14px;
+}
+
+th{
+  background:#007bff;
+  color:white;
+  position:sticky;
+  top:0;
+}
+
+tr:nth-child(even){ background:#f9f9f9; }
+tr:hover{ background:#eef; }
+
+button{
+  padding:10px 20px;
+  background:#007bff;
+  color:white;
+  border:none;
+  border-radius:5px;
+  cursor:pointer;
+  margin-left:10px;
+}
+
+button:hover{
+  background:#0056b3;
+}
+.body-container{
+  padding-top: 20px;
+}
+</style>
+</head>
+
+<body>
+
+
+
+<div class="upload-box">
+  <input type="file" id="excelFile" accept=".xlsx, .xls" />
+  <button onclick="downloadTableImage()">Download Image</button>
+</div>
+
+<div class="body-container">
+
+<h2 id="title"></h2>
+<div class="table-container">
+<table id="dataTable">
+<thead></thead>
+<tbody></tbody>
+</table>
+</div>
+</div>
+
+
+<script>
+
+document.getElementById('excelFile').addEventListener('change', handleFile);
+
+const today = new Date();
+
+const formattedDate =
+  today.getDate().toString().padStart(2, '0') + '-' +
+  (today.getMonth() + 1).toString().padStart(2, '0') + '-' +
+  today.getFullYear();
+
+document.getElementById('title').textContent =
+  `Progression Activity Status as on ${formattedDate} - Nidamanur Mandal`;
+
+function handleFile(e){
+
+  const file = e.target.files[0];
+  if(!file) return;
+
+  const reader = new FileReader();
+
+  reader.onload = function(event){
+
+    const data = new Uint8Array(event.target.result);
+    const workbook = XLSX.read(data,{type:'array'});
+
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+
+    const jsonData = XLSX.utils.sheet_to_json(worksheet,{header:1});
+
+    displayTable(jsonData);
+  };
+
+  reader.readAsArrayBuffer(file);
+}
+
+function displayTable(data){
+
+  const thead = document.querySelector('#dataTable thead');
+  const tbody = document.querySelector('#dataTable tbody');
+
+  thead.innerHTML='';
+  tbody.innerHTML='';
+
+  const skipColumns = [0,1,2,3,4,6,7,8];
+  const headerIndex = 3;
+  const skipRows = [0,1,2,4];
+
+  // HEADER
+  const headerRow = document.createElement('tr');
+
+  const snoTh = document.createElement('th');
+  snoTh.textContent = 'S.No';
+  headerRow.appendChild(snoTh);
+
+  data[headerIndex].forEach((header, index) => {
+    if(skipColumns.includes(index)) return;
+
+    const th = document.createElement('th');
+    th.textContent = header || '';
+    headerRow.appendChild(th);
+  });
+
+  const completedTh = document.createElement('th');
+  completedTh.textContent = 'Completed (%)';
+  headerRow.appendChild(completedTh);
+
+  thead.appendChild(headerRow);
+
+  // DATA
+  let bodyData = data.filter((row, index) => {
+    return index > headerIndex && !skipRows.includes(index);
+  });
+
+  bodyData.sort((a, b) => {
+
+    const va = a.filter((_, i) => !skipColumns.includes(i));
+    const vb = b.filter((_, i) => !skipColumns.includes(i));
+
+    const a1 = parseFloat(va[1]) || 0;
+    const a11 = parseFloat(va[11]) || 0;
+    const a12 = parseFloat(va[12]) || 0;
+
+    const b1 = parseFloat(vb[1]) || 0;
+    const b11 = parseFloat(vb[11]) || 0;
+    const b12 = parseFloat(vb[12]) || 0;
+
+    const compA = a1 ? ((a11 + a12) / a1) * 100 : 0;
+    const compB = b1 ? ((b11 + b12) / b1) * 100 : 0;
+
+    return compB - compA;
+  });
+
+  let serialNumber = 1;
+
+  bodyData.forEach((rowData) => {
+
+    const row = document.createElement('tr');
+
+    const snoTd = document.createElement('td');
+    snoTd.textContent = serialNumber++;
+    row.appendChild(snoTd);
+
+    let visibleValues = [];
+
+    rowData.forEach((cell, index) => {
+
+      if(skipColumns.includes(index)) return;
+
+      const td = document.createElement('td');
+
+      let val = (cell === undefined || cell === null || cell === '') ? 0 : cell;
+
+      visibleValues.push(parseFloat(val) || 0);
+
+      td.textContent = val;
+// 8th visible column text red
+if(visibleValues.length === 8){
+  td.style.color = "red";
+  td.style.fontWeight = "bold";
+}
+// 7th visible column text red
+if(visibleValues.length === 3){
+  td.style.color = "green";
+  td.style.fontWeight = "bold";
+}
+      row.appendChild(td);
+    });
+
+    const col1  = visibleValues[1] || 0;
+    const col11 = visibleValues[11] || 0;
+    const col12 = visibleValues[12] || 0;
+
+    const completedValue = col1 ? ((col11 + col12) / col1) * 100 : 0;
+
+    const td = document.createElement('td');
+    td.textContent = completedValue.toFixed(2);
+
+if (completedValue >= 90) td.style.background = "#00b050";
+else if (completedValue >= 80) td.style.background = "#39b86b";
+else if (completedValue >= 70) td.style.background = "#70c17f";
+else if (completedValue >= 60) td.style.background = "#a7d492";
+else if (completedValue >= 50) td.style.background = "#ffe699";
+else if (completedValue >= 40) td.style.background = "#ffd966";
+else if (completedValue >= 30) td.style.background = "#f6b26b";
+else if (completedValue >= 20) td.style.background = "#f4a261";
+else if (completedValue >= 10) td.style.background = "#e76f51";
+else td.style.background = "#ff4d4d";
+
+    td.style.color = "black";
+    td.style.fontWeight = "bold";
+
+    row.appendChild(td);
+
+    tbody.appendChild(row);
+
+  
+  });
+// TOTAL ROW
+const totalRow = document.createElement('tr');
+const totalRowBg = "#DBEAFE";
+const totalLabel = document.createElement('td');
+totalLabel.colSpan = 2;
+totalLabel.textContent = "Total";
+totalLabel.style.fontWeight = "bold";
+totalLabel.style.background = totalRowBg;
+//totalLabel.style.color = "#fff";
+totalRow.appendChild(totalLabel);
+
+
+let totals = [];
+let totalCompleted = 0;
+let totalTarget = 0;
+
+bodyData.forEach((rowData) => {
+
+  let visibleIndex = 0;
+
+  rowData.forEach((cell, index) => {
+
+    if(skipColumns.includes(index)) return;
+
+    let val = (cell === undefined || cell === null || cell === '') ? 0 : cell;
+
+    // number check
+    const num = parseFloat(val);
+
+    if(!isNaN(num)){
+
+      totals[visibleIndex] = (totals[visibleIndex] || 0) + num;
+
+      // completed calculation columns
+      if(visibleIndex === 1){
+        totalTarget += num;
+      }
+
+      if(visibleIndex === 11 || visibleIndex === 12){
+        totalCompleted += num;
+      }
+
+    }
+
+    visibleIndex++;
+  });
+});
+
+// totals display
+const firstDataRow = bodyData[0]
+  .filter((_, i) => !skipColumns.includes(i));
+
+firstDataRow.forEach((cell, index) => {
+
+  // first column merged into Total
+  if(index === 0) return;
+
+  const td = document.createElement('td');
+
+  // check if column is numeric
+  const isNumericColumn = !isNaN(parseFloat(cell));
+
+  if(isNumericColumn){
+    td.textContent = totals[index] !== undefined
+      ? totals[index].toFixed(0)
+      : '';
+  } else {
+    td.textContent = '';
+  }
+
+  td.style.fontWeight = "bold";
+td.style.background = totalRowBg;
+//td.style.color = "white";
+
+  totalRow.appendChild(td);
+});
+
+// overall completed %
+const completedTd = document.createElement('td');
+
+const finalPercent = totalTarget
+  ? (totalCompleted / totalTarget) * 100
+  : 0;
+
+completedTd.textContent = finalPercent.toFixed(2);
+
+completedTd.style.fontWeight = "bold";
+//completedTd.style.color = "#fff";
+
+completedTd.style.background = totalRowBg;
+
+totalRow.appendChild(completedTd);
+
+tbody.appendChild(totalRow);
+}
+
+
+function downloadTableImage(){
+
+  const tableContainer = document.querySelector('.body-container');
+
+  html2canvas(tableContainer, {
+    scale: 4,
+    useCORS: true,
+    backgroundColor: "#ffffff",
+    scrollX: 0,
+    scrollY: 0,
+    windowWidth: tableContainer.scrollWidth,
+    windowHeight: tableContainer.scrollHeight
+  }).then(canvas => {
+
+    // HD quality
+    const finalCanvas = document.createElement('canvas');
+    const ctx = finalCanvas.getContext('2d');
+
+    finalCanvas.width = canvas.width;
+    finalCanvas.height = canvas.height;
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+
+    ctx.drawImage(canvas, 0, 0);
+
+    const link = document.createElement('a');
+
+    link.download = 'Progression_Report_HD.png';
+
+    link.href = finalCanvas.toDataURL('image/png', 1.0);
+
+    link.click();
+  });
+}
+
+
+</script>
+
+</body>
+</html>
