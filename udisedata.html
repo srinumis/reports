@@ -296,11 +296,11 @@ function updateReportTitle() {
 
   if (selectedComplex === "All") {
     title.textContent =
-      "Mandal Level Student Data (GP, EP, FP) Entry Status Report";
+      "Mandal Level Student Data (GP, EP, FP) Entry Status Report - ";
   } else {
     title.textContent =
       selectedComplex +
-      " Complex Student Data (GP, EP, FP) Entry Status Report";
+      " Complex Student Data (GP, EP, FP) Entry Status Report - ";
   }
 }
 
@@ -672,9 +672,15 @@ async function downloadImage() {
 
     const link = document.createElement("a");
 
-    link.download =
-      (selectedComplex === "All" ? "Mandal_Level" : selectedComplex + "_Complex") +
-      "_Student_Data_Entry_Status_Report.png";
+const title = document.getElementById("reportTitle").textContent.trim();
+
+const safeTitle = title
+  .replace(/[<>:"/\\|?*]/g, "")
+  .replace(/\s+/g, "_");
+
+const date = new Date().toISOString().slice(0, 10);
+
+link.download = safeTitle + "_" + date + ".png";
 
     link.href = canvas.toDataURL("image/png");
 
