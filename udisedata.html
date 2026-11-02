@@ -1,0 +1,885 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Mandal Level Student Data Entry Status Report</title>
+
+<!-- Excel and CSV reader -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<!-- Image download library -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+<style>
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 10px;
+  background: #f4f6f8;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #111;
+}
+
+.page {
+  max-width: 1500px;
+  margin: 0 auto;
+}
+
+/* Report title and date */
+.report-title {
+  background: #4f81bd;
+  color: white;
+  text-align: center;
+  font-size: clamp(17px, 2.2vw, 25px);
+  font-weight: 700;
+  padding: 12px 8px;
+  margin-bottom: 10px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+#reportDate {
+  font-size: 22px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Toolbar */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.file-label,
+.action-btn {
+  border: 0;
+  border-radius: 5px;
+  padding: 10px 16px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.file-label {
+  background: #1769aa;
+  color: white;
+}
+
+.action-btn {
+  background: #555;
+  color: white;
+}
+
+.action-btn:hover {
+  background: #333;
+}
+
+#excelFile {
+  display: none;
+}
+
+#fileName {
+  color: #555;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+/* Summary cards */
+.summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(130px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.summary-card {
+  border-radius: 6px;
+  min-height: 68px;
+  padding: 10px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.summary-card span {
+  font-size: 12px;
+  margin-bottom: 5px;
+}
+
+.summary-card strong {
+  font-size: 20px;
+}
+
+.yellow {
+  background: #ffeb88;
+}
+
+.blue {
+  background: #cfe2f3;
+}
+
+.green {
+  background: #63bd7b;
+}
+
+.red {
+  background: #f5686b;
+}
+
+/* Report table */
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  background: white;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 850px;
+  background: white;
+  font-size: 13px;
+}
+
+th,
+td {
+  border: 1px solid #444;
+  padding: 6px 7px;
+  text-align: center;
+  height: 29px;
+}
+
+thead th {
+  background: #d9d9d9;
+  font-weight: 700;
+}
+
+td.school {
+  text-align: left;
+  min-width: 230px;
+}
+
+td.udise {
+  white-space: nowrap;
+}
+
+.pct-good {
+  background: #63bd7b;
+}
+
+.pct-mid {
+  background: #ffe680;
+}
+
+.pct-low {
+  background: #f5686b;
+}
+
+tfoot td {
+  background: #e5e5e5;
+  font-weight: 700;
+}
+
+/* Empty state and note */
+.empty {
+  text-align: center;
+  padding: 35px 12px;
+  color: #666;
+  background: white;
+  border: 1px solid #ccc;
+}
+
+.note {
+  font-size: 12px;
+  color: #666;
+  margin: 9px 0;
+}
+
+/* Mobile layout */
+@media (max-width: 700px) {
+  body {
+    padding: 6px;
+  }
+
+  .summary {
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+  }
+
+  .summary-card strong {
+    font-size: 18px;
+  }
+
+  .report-title {
+    gap: 8px;
+  }
+
+  #reportDate {
+    font-size: 12px;
+  }
+}
+
+/* Print / Save PDF */
+@media print {
+  body {
+    padding: 0;
+    background: white;
+  }
+
+  .toolbar,
+  .note {
+    display: none !important;
+  }
+
+  .page {
+    max-width: none;
+  }
+
+  .table-wrap {
+    overflow: visible;
+  }
+
+  table {
+    min-width: 0;
+    font-size: 10px;
+  }
+
+  th,
+  td {
+    padding: 4px;
+  }
+
+  .report-title,
+  .summary-card,
+  td,
+  th {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  #reportDate {
+    font-size: 12px;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<div class="page" id="reportPage">
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+
+    <label class="file-label" for="excelFile">
+      Import Excel File
+    </label>
+
+    <input
+      type="file"
+      id="excelFile"
+      accept=".xlsx,.xls,.csv"
+    >
+
+    <button class="action-btn" onclick="window.print()">
+      Print / Save PDF
+    </button>
+
+    <button class="action-btn" onclick="downloadCsv()">
+      Download CSV
+    </button>
+
+    <button class="action-btn" onclick="downloadImage()">
+      Download Image
+    </button>
+
+    <span id="fileName">
+      Please select an Excel file (.xlsx / .xls)
+    </span>
+
+  </div>
+
+  <!-- Report title and current date -->
+  <div class="report-title" id="reportHeading">
+
+    <span id="reportTitle">
+      Mandal Level Student Data (GP,EP,FP) Entry Status Report - 
+    </span>
+
+    <span id="reportDate"></span>
+
+  </div>
+
+  <!-- Summary cards -->
+  <div class="summary">
+
+    <div class="summary-card yellow">
+      <span>Total Students</span>
+      <strong id="sumStudents">0</strong>
+    </div>
+
+    <div class="summary-card blue">
+      <span>Not Started</span>
+      <strong id="sumNotStarted">0</strong>
+    </div>
+
+    <div class="summary-card green">
+      <span>In Progress</span>
+      <strong id="sumInProgress">0</strong>
+    </div>
+
+    <div class="summary-card red">
+      <span>Overall Completed</span>
+      <strong id="sumPercentage">0.00%</strong>
+    </div>
+
+  </div>
+
+  <!-- School-wise report -->
+  <div id="tableArea" class="empty">
+    Import your Excel file to display the school-wise report.
+  </div>
+
+  <div class="note">
+    Percentage = (Total Completed ÷ Total Students) × 100.
+    Percentage is calculated automatically from the imported values.
+  </div>
+
+</div>
+
+<script>
+
+let reportRows = [];
+
+/* Column header aliases */
+const columns = {
+  school: ["School Name", "SchoolName"],
+  udise: ["UDISE Code", "UdiseCode", "UDISE"],
+  total: [
+    "Total Students",
+    "Total Students(Previous Year)",
+    "TotalStudents"
+  ],
+  notStarted: ["Not Started", "NotStarted"],
+  inProgress: ["In Progress", "InProgress"],
+  completed: ["Total Completed", "TotalCompleted"]
+};
+
+/* Normalize Excel column names */
+function normalizeHeader(value) {
+  return String(value ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+/* Convert values to numbers */
+function numberValue(value) {
+  if (value === null || value === undefined || value === "") {
+    return 0;
+  }
+
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  const n = Number(String(value).replace(/,/g, "").trim());
+
+  return Number.isFinite(n) ? n : 0;
+}
+
+/* Find the matching column */
+function findColumn(headers, aliases) {
+  const normalized = headers.map(normalizeHeader);
+
+  for (const alias of aliases) {
+    const index = normalized.indexOf(normalizeHeader(alias));
+
+    if (index !== -1) {
+      return index;
+    }
+  }
+
+  return -1;
+}
+
+/* Display current date */
+function updateReportDate() {
+  const today = new Date();
+
+  const date = today.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  });
+
+  document.getElementById("reportDate").textContent = date;
+}
+
+updateReportDate();
+
+/* Import Excel file */
+document.getElementById("excelFile").addEventListener(
+  "change",
+  async function(event) {
+
+    const file = event.target.files[0];
+
+    if (!file) return;
+
+    document.getElementById("fileName").textContent = file.name;
+
+    try {
+
+      if (typeof XLSX === "undefined") {
+        throw new Error(
+          "Excel reader library load కాలేదు. Internet connection check చేసి page refresh చేసి మళ్లీ ప్రయత్నించండి."
+        );
+      }
+
+      const buffer = await file.arrayBuffer();
+
+      const workbook = XLSX.read(buffer, {
+        type: "array"
+      });
+
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+
+      const matrix = XLSX.utils.sheet_to_json(sheet, {
+        header: 1,
+        defval: ""
+      });
+
+      if (!matrix.length) {
+        throw new Error("The selected Excel sheet is empty.");
+      }
+
+      /* Find the row containing the required headers */
+      let headerRowIndex = -1;
+      let map = {};
+
+      for (let r = 0; r < Math.min(matrix.length, 20); r++) {
+
+        const headers = matrix[r].map(
+          v => String(v ?? "")
+        );
+
+        const candidate = {};
+
+        for (const [key, aliases] of Object.entries(columns)) {
+          candidate[key] = findColumn(headers, aliases);
+        }
+
+        if (
+          candidate.school >= 0 &&
+          candidate.udise >= 0 &&
+          candidate.total >= 0 &&
+          candidate.notStarted >= 0 &&
+          candidate.inProgress >= 0 &&
+          candidate.completed >= 0
+        ) {
+          headerRowIndex = r;
+          map = candidate;
+          break;
+        }
+      }
+
+      if (headerRowIndex < 0) {
+        throw new Error(
+          "Required columns not found. Please check the Excel headers: School Name, UDISE Code, Total Students, Not Started, In Progress, Total Completed."
+        );
+      }
+
+      reportRows = [];
+
+      matrix.slice(headerRowIndex + 1).forEach((row, offset) => {
+
+        /* Skip physical Excel row 5 */
+        const excelRowNumber = headerRowIndex + 2 + offset;
+
+        if (excelRowNumber === 5) return;
+
+        const school = String(row[map.school] ?? "").trim();
+        const udise = String(row[map.udise] ?? "").trim();
+
+        if (!school && !udise) return;
+
+        const total = numberValue(row[map.total]);
+        const notStarted = numberValue(row[map.notStarted]);
+        const inProgress = numberValue(row[map.inProgress]);
+        const completed = numberValue(row[map.completed]);
+
+        reportRows.push({
+          school,
+          udise,
+          total,
+          notStarted,
+          inProgress,
+          completed,
+          percentage: total > 0
+            ? (completed / total) * 100
+            : 0
+        });
+
+      });
+
+      /* Lowest completion percentage first */
+      reportRows.sort(
+        (a, b) => a.percentage - b.percentage
+      );
+
+      renderReport();
+
+    } catch (error) {
+
+      reportRows = [];
+
+      document.getElementById("tableArea").className = "empty";
+
+      document.getElementById("tableArea").textContent =
+        error.message || "Unable to read this file.";
+
+      updateSummary();
+    }
+  }
+);
+
+/* Format numbers using Indian number system */
+function formatNumber(n) {
+  return Number(n || 0).toLocaleString("en-IN", {
+    maximumFractionDigits: 2
+  });
+}
+
+/* Percentage colors */
+function percentageClass(p) {
+  if (p >= 90) return "pct-good";
+  if (p >= 50) return "pct-mid";
+  return "pct-low";
+}
+
+/* Update summary cards */
+function updateSummary() {
+
+  const total = reportRows.reduce(
+    (s, r) => s + r.total, 0
+  );
+
+  const ns = reportRows.reduce(
+    (s, r) => s + r.notStarted, 0
+  );
+
+  const ip = reportRows.reduce(
+    (s, r) => s + r.inProgress, 0
+  );
+
+  const completed = reportRows.reduce(
+    (s, r) => s + r.completed, 0
+  );
+
+  const pct = total > 0
+    ? completed / total * 100
+    : 0;
+
+  document.getElementById("sumStudents").textContent =
+    formatNumber(total);
+
+  document.getElementById("sumNotStarted").textContent =
+    formatNumber(ns);
+
+  document.getElementById("sumInProgress").textContent =
+    formatNumber(ip);
+
+  document.getElementById("sumPercentage").textContent =
+    pct.toFixed(2) + "%";
+}
+
+/* Render the school-wise report */
+function renderReport() {
+
+  updateSummary();
+
+  if (!reportRows.length) {
+
+    document.getElementById("tableArea").className = "empty";
+
+    document.getElementById("tableArea").textContent =
+      "No school records found in the selected sheet.";
+
+    return;
+  }
+
+  let html = `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>S.No</th>
+            <th>School Name</th>
+            <th>UDISE Code</th>
+            <th>Total Students</th>
+            <th>Not Started</th>
+            <th>In Progress</th>
+            <th>Total Completed</th>
+            <th>Percentage</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+
+  let totals = {
+    total: 0,
+    notStarted: 0,
+    inProgress: 0,
+    completed: 0
+  };
+
+  reportRows.forEach((r, i) => {
+
+    totals.total += r.total;
+    totals.notStarted += r.notStarted;
+    totals.inProgress += r.inProgress;
+    totals.completed += r.completed;
+
+    html += `
+      <tr>
+        <td>${i + 1}</td>
+        <td class="school">${escapeHtml(r.school)}</td>
+        <td class="udise">${escapeHtml(r.udise)}</td>
+        <td>${formatNumber(r.total)}</td>
+        <td>${formatNumber(r.notStarted)}</td>
+        <td>${formatNumber(r.inProgress)}</td>
+        <td>${formatNumber(r.completed)}</td>
+        <td class="${percentageClass(r.percentage)}">
+          ${r.percentage.toFixed(2)}%
+        </td>
+      </tr>
+    `;
+  });
+
+  const totalPct = totals.total > 0
+    ? totals.completed / totals.total * 100
+    : 0;
+
+  html += `
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3">Total</td>
+            <td>${formatNumber(totals.total)}</td>
+            <td>${formatNumber(totals.notStarted)}</td>
+            <td>${formatNumber(totals.inProgress)}</td>
+            <td>${formatNumber(totals.completed)}</td>
+            <td class="${percentageClass(totalPct)}">
+              ${totalPct.toFixed(2)}%
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  `;
+
+  document.getElementById("tableArea").className = "";
+
+  document.getElementById("tableArea").innerHTML = html;
+}
+
+/* Escape HTML to prevent invalid table content */
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, ch => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[ch]);
+}
+
+/* Download CSV */
+function downloadCsv() {
+
+  if (!reportRows.length) {
+    alert("Please import an Excel file first.");
+    return;
+  }
+
+  const rows = [[
+    "S.No",
+    "School Name",
+    "UDISE Code",
+    "Total Students",
+    "Not Started",
+    "In Progress",
+    "Total Completed",
+    "Percentage"
+  ]];
+
+  reportRows.forEach((r, i) => {
+
+    rows.push([
+      i + 1,
+      r.school,
+      r.udise,
+      r.total,
+      r.notStarted,
+      r.inProgress,
+      r.completed,
+      r.percentage.toFixed(2) + "%"
+    ]);
+
+  });
+
+  const csv = rows.map(row =>
+    row.map(v =>
+      `"${String(v).replace(/"/g, '""')}"`
+    ).join(",")
+  ).join("\r\n");
+
+  const blob = new Blob(
+    ["\uFEFF" + csv],
+    { type: "text/csv;charset=utf-8;" }
+  );
+
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+
+  a.href = url;
+  a.download = "Student_Data_Entry_Status_Report.csv";
+
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  URL.revokeObjectURL(url);
+}
+
+/* Download complete report as PNG image */
+async function downloadImage() {
+
+  if (!reportRows.length) {
+    alert("Please import an Excel file first.");
+    return;
+  }
+
+  if (typeof html2canvas === "undefined") {
+    alert("Image library load కాలేదు. Internet connection check చేయండి.");
+    return;
+  }
+
+  const report = document.getElementById("reportPage");
+
+  try {
+
+    const canvas = await html2canvas(report, {
+
+      scale: 2,
+      backgroundColor: "#ffffff",
+      useCORS: true,
+
+      // Capture full report dimensions
+      width: report.scrollWidth,
+      height: report.scrollHeight,
+
+      windowWidth: report.scrollWidth,
+      windowHeight: report.scrollHeight,
+
+      scrollX: 0,
+      scrollY: 0,
+
+      // Avoid mobile browser viewport rotation
+      onclone: function(clonedDocument) {
+
+        const clonedPage =
+          clonedDocument.getElementById("reportPage");
+
+        clonedPage.style.width =
+          report.scrollWidth + "px";
+
+        clonedPage.style.maxWidth = "none";
+        clonedPage.style.margin = "0";
+        clonedPage.style.padding = "10px";
+        clonedPage.style.background = "#ffffff";
+
+        const toolbar =
+          clonedPage.querySelector(".toolbar");
+
+        const note =
+          clonedPage.querySelector(".note");
+
+        if (toolbar) {
+          toolbar.style.display = "none";
+        }
+
+        if (note) {
+          note.style.display = "none";
+        }
+
+        const tableWrap =
+          clonedPage.querySelector(".table-wrap");
+
+        if (tableWrap) {
+          tableWrap.style.overflow = "visible";
+        }
+
+        const table =
+          clonedPage.querySelector("table");
+
+        if (table) {
+          table.style.width = "100%";
+          table.style.minWidth = "0";
+        }
+      }
+    });
+
+    // Create a new horizontal canvas
+    const outputCanvas = document.createElement("canvas");
+
+    outputCanvas.width = canvas.width;
+    outputCanvas.height = canvas.height;
+
+    const ctx = outputCanvas.getContext("2d");
+
+    // Draw without rotating the original image
+    ctx.drawImage(
+      canvas,
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+
+    const link = document.createElement("a");
+
+    link.download =
+      "Student_Data_Entry_Status_Report.png";
+
+    link.href = outputCanvas.toDataURL("image/png");
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+  } catch (error) {
+
+    console.error(error);
+
+    alert("Image download failed. Please try again.");
+  }
+}
+</script>
+
+</body>
+</html>
