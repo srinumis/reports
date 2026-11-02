@@ -4,351 +4,149 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student Data Entry Status Report</title>
 
-<title>Mandal Level Student Data Entry Status Report</title>
-
-<!-- Excel and CSV reader -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-
-<!-- Image download library -->
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
 <style>
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  padding: 10px;
-  background: #f4f6f8;
-  font-family: Arial, Helvetica, sans-serif;
-  color: #111;
-}
-
-.page {
-  max-width: 1500px;
-  margin: 0 auto;
-}
-
-/* Report title and date */
-.report-title {
-  background: #4f81bd;
-  color: white;
-  text-align: center;
-  font-size: clamp(17px, 2.2vw, 25px);
-  font-weight: 700;
-  padding: 12px 8px;
-  margin-bottom: 10px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 15px;
-}
-
-#reportDate {
-  font-size: 22px;
-  font-weight: 600;
-  white-space: nowrap;
-}
+*{box-sizing:border-box}
+body{margin:0;padding:10px;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#111}
+.page{max-width:1500px;margin:0 auto}
 
 /* Toolbar */
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px}
+.file-label,.action-btn{border:0;border-radius:5px;padding:10px 16px;font-weight:700;cursor:pointer;font-size:14px}
+.file-label{background:#1769aa;color:white}
+.action-btn{background:#555;color:white}
+.action-btn:hover{background:#333}
+#excelFile{display:none}
+#fileName{color:#555;font-size:13px;overflow-wrap:anywhere}
+
+/* Complex filter */
+.complex-filter{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  background:#e8f0f8;padding:10px;margin-bottom:10px;border-radius:5px
+}
+.complex-filter label{font-weight:bold}
+.complex-filter select{
+  padding:9px 12px;border:1px solid #888;border-radius:5px;
+  font-size:14px;min-width:190px;background:white
 }
 
-.file-label,
-.action-btn {
-  border: 0;
-  border-radius: 5px;
-  padding: 10px 16px;
-  font-weight: 700;
-  cursor: pointer;
-  font-size: 14px;
+/* Title */
+.report-title{
+  background:#4f81bd;color:white;text-align:center;
+  font-size:clamp(17px,2.2vw,25px);font-weight:700;
+  padding:12px 8px;margin-bottom:10px;
+  display:flex;align-items:center;justify-content:center;
+  flex-wrap:wrap;gap:10px
+}
+#reportDate{font-size:inherit;font-weight:600;white-space:nowrap}
+
+/* Summary */
+.summary{display:grid;grid-template-columns:repeat(4,minmax(130px,1fr));gap:10px;margin-bottom:14px}
+.summary-card{
+  border-radius:6px;min-height:68px;padding:10px;text-align:center;
+  display:flex;flex-direction:column;justify-content:center
+}
+.summary-card span{font-size:12px;margin-bottom:5px}
+.summary-card strong{font-size:20px}
+.yellow{background:#ffeb88}
+.blue{background:#cfe2f3}
+.green{background:#63bd7b}
+.red{background:#f5686b}
+
+/* Table */
+.table-wrap{width:100%;overflow-x:auto;background:white}
+table{border-collapse:collapse;width:100%;min-width:850px;background:white;font-size:13px}
+th,td{border:1px solid #444;padding:6px 7px;text-align:center;height:29px}
+thead th{background:#d9d9d9;font-weight:700}
+td.school{text-align:left;min-width:230px}
+td.udise{white-space:nowrap}
+.pct-good{background:#63bd7b}
+.pct-mid{background:#ffe680}
+.pct-low{background:#f5686b}
+tfoot td{background:#e5e5e5;font-weight:700}
+
+/* Empty state */
+.empty{text-align:center;padding:35px 12px;color:#666;background:white;border:1px solid #ccc}
+.note{font-size:12px;color:#666;margin:9px 0}
+
+@media(max-width:700px){
+  body{padding:6px}
+  .summary{grid-template-columns:repeat(2,minmax(120px,1fr))}
+  .summary-card strong{font-size:18px}
+  .report-title{gap:8px}
 }
 
-.file-label {
-  background: #1769aa;
-  color: white;
-}
-
-.action-btn {
-  background: #555;
-  color: white;
-}
-
-.action-btn:hover {
-  background: #333;
-}
-
-#excelFile {
-  display: none;
-}
-
-#fileName {
-  color: #555;
-  font-size: 13px;
-  overflow-wrap: anywhere;
-}
-
-/* Summary cards */
-.summary {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(130px, 1fr));
-  gap: 10px;
-  margin-bottom: 14px;
-}
-
-.summary-card {
-  border-radius: 6px;
-  min-height: 68px;
-  padding: 10px;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.summary-card span {
-  font-size: 12px;
-  margin-bottom: 5px;
-}
-
-.summary-card strong {
-  font-size: 20px;
-}
-
-.yellow {
-  background: #ffeb88;
-}
-
-.blue {
-  background: #cfe2f3;
-}
-
-.green {
-  background: #63bd7b;
-}
-
-.red {
-  background: #f5686b;
-}
-
-/* Report table */
-.table-wrap {
-  width: 100%;
-  overflow-x: auto;
-  background: white;
-}
-
-table {
-  border-collapse: collapse;
-  width: 100%;
-  min-width: 850px;
-  background: white;
-  font-size: 13px;
-}
-
-th,
-td {
-  border: 1px solid #444;
-  padding: 6px 7px;
-  text-align: center;
-  height: 29px;
-}
-
-thead th {
-  background: #d9d9d9;
-  font-weight: 700;
-}
-
-td.school {
-  text-align: left;
-  min-width: 230px;
-}
-
-td.udise {
-  white-space: nowrap;
-}
-
-.pct-good {
-  background: #63bd7b;
-}
-
-.pct-mid {
-  background: #ffe680;
-}
-
-.pct-low {
-  background: #f5686b;
-}
-
-tfoot td {
-  background: #e5e5e5;
-  font-weight: 700;
-}
-
-/* Empty state and note */
-.empty {
-  text-align: center;
-  padding: 35px 12px;
-  color: #666;
-  background: white;
-  border: 1px solid #ccc;
-}
-
-.note {
-  font-size: 12px;
-  color: #666;
-  margin: 9px 0;
-}
-
-/* Mobile layout */
-@media (max-width: 700px) {
-  body {
-    padding: 6px;
-  }
-
-  .summary {
-    grid-template-columns: repeat(2, minmax(120px, 1fr));
-  }
-
-  .summary-card strong {
-    font-size: 18px;
-  }
-
-  .report-title {
-    gap: 8px;
-  }
-
-  #reportDate {
-    font-size: 12px;
-  }
-}
-
-/* Print / Save PDF */
-@media print {
-  body {
-    padding: 0;
-    background: white;
-  }
-
-  .toolbar,
-  .note {
-    display: none !important;
-  }
-
-  .page {
-    max-width: none;
-  }
-
-  .table-wrap {
-    overflow: visible;
-  }
-
-  table {
-    min-width: 0;
-    font-size: 10px;
-  }
-
-  th,
-  td {
-    padding: 4px;
-  }
-
-  .report-title,
-  .summary-card,
-  td,
-  th {
-    print-color-adjust: exact;
-    -webkit-print-color-adjust: exact;
-  }
-
-  #reportDate {
-    font-size: 12px;
+@media print{
+  body{padding:0;background:white}
+  .toolbar,.complex-filter,.note{display:none!important}
+  .page{max-width:none}
+  .table-wrap{overflow:visible}
+  table{min-width:0;font-size:10px}
+  th,td{padding:4px}
+  .report-title,.summary-card,td,th{
+    print-color-adjust:exact;-webkit-print-color-adjust:exact
   }
 }
 </style>
 </head>
 
 <body>
-
 <div class="page" id="reportPage">
 
   <!-- Toolbar -->
   <div class="toolbar">
+    <label class="file-label" for="excelFile">Import Excel File</label>
+    <input type="file" id="excelFile" accept=".xlsx,.xls,.csv">
 
-    <label class="file-label" for="excelFile">
-      Import Excel File
-    </label>
+    <button class="action-btn" onclick="window.print()">Print / Save PDF</button>
+    <button class="action-btn" onclick="downloadCsv()">Download CSV</button>
+    <button class="action-btn" onclick="downloadImage()">Download Image</button>
 
-    <input
-      type="file"
-      id="excelFile"
-      accept=".xlsx,.xls,.csv"
-    >
-
-    <button class="action-btn" onclick="window.print()">
-      Print / Save PDF
-    </button>
-
-    <button class="action-btn" onclick="downloadCsv()">
-      Download CSV
-    </button>
-
-    <button class="action-btn" onclick="downloadImage()">
-      Download Image
-    </button>
-
-    <span id="fileName">
-      Please select an Excel file (.xlsx / .xls)
-    </span>
-
+    <span id="fileName">Please select an Excel file (.xlsx / .xls)</span>
   </div>
 
-  <!-- Report title and current date -->
+  <!-- Complex Dropdown -->
+  <div class="complex-filter">
+    <label for="complexSelect">Select Complex:</label>
+    <select id="complexSelect" onchange="applyComplexFilter()">
+      <option value="All">All Schools</option>
+      <option value="Nidamanur">Nidamanur</option>
+      <option value="Thummadam">Thummadam</option>
+      <option value="Yerraballi">Yerraballi</option>
+    </select>
+  </div>
+
+  <!-- Report Title -->
   <div class="report-title" id="reportHeading">
-
-    <span id="reportTitle">
-      Mandal Level Student Data (GP,EP,FP) Entry Status Report - 
-    </span>
-
+    <span id="reportTitle">Mandal Level Student Data (GP, EP, FP) Entry Status Report</span>
     <span id="reportDate"></span>
-
   </div>
 
-  <!-- Summary cards -->
+  <!-- Summary Cards -->
   <div class="summary">
-
     <div class="summary-card yellow">
       <span>Total Students</span>
       <strong id="sumStudents">0</strong>
     </div>
-
     <div class="summary-card blue">
       <span>Not Started</span>
       <strong id="sumNotStarted">0</strong>
     </div>
-
     <div class="summary-card green">
       <span>In Progress</span>
       <strong id="sumInProgress">0</strong>
     </div>
-
     <div class="summary-card red">
       <span>Overall Completed</span>
       <strong id="sumPercentage">0.00%</strong>
     </div>
-
   </div>
 
-  <!-- School-wise report -->
+  <!-- School Report -->
   <div id="tableArea" class="empty">
     Import your Excel file to display the school-wise report.
   </div>
@@ -361,10 +159,76 @@ tfoot td {
 </div>
 
 <script>
-
 let reportRows = [];
+let selectedComplex = "All";
 
-/* Column header aliases */
+/* Complex UDISE Codes */
+const complexCodes = {
+  Nidamanur: [
+    "36291700825",
+    "36291700821",
+    "36291700815",
+    "36291701001",
+    "36291700702",
+    "36291700502",
+    "36291700801",
+    "36291701103",
+    "36291700901",
+    "36291701301",
+    "36291700701",
+    "36291700703",
+    "36291701101",
+    "36291700827",
+    "36291700830",
+    "36291700831",
+    "36291700816",
+    "36291701104"
+  ],
+
+  Thummadam: [
+    "36291701222",
+    "36291701223",
+    "36292900504",
+    "36291700601",
+    "36291701205",
+    "36291701210",
+    "36291701204",
+    "36291701206",
+    "36291701207",
+    "36291701208",
+    "36291701402",
+    "36291701201",
+    "36291701203",
+    "36291701501",
+    "36291701217",
+    "36291701211",
+    "36291701215",
+    "36291701216",
+    "36291701214"
+  ],
+
+  Yerraballi: [
+    "36291700203",
+    "36291700301",
+    "36291700302",
+    "36291700104",
+    "36291700101",
+    "36291700504",
+    "36291700402",
+    "36291700501",
+    "36291700403",
+    "36291700105",
+    "36291700404",
+    "36291700201",
+    "36291700102",
+    "36291700829",
+    "36291700505",
+    "36291700405",
+    "36291700204"
+  ]
+};
+
+/* Excel column aliases */
 const columns = {
   school: ["School Name", "SchoolName"],
   udise: ["UDISE Code", "UdiseCode", "UDISE"],
@@ -378,185 +242,193 @@ const columns = {
   completed: ["Total Completed", "TotalCompleted"]
 };
 
-/* Normalize Excel column names */
+/* Normalize Excel headers */
 function normalizeHeader(value) {
   return String(value ?? "")
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "");
 }
 
+/* Normalize UDISE */
+function normalizeUdise(value) {
+  return String(value ?? "")
+    .trim()
+    .replace(/\.0$/, "")
+    .replace(/\D/g, "");
+}
+
 /* Convert values to numbers */
 function numberValue(value) {
-  if (value === null || value === undefined || value === "") {
-    return 0;
-  }
-
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? value : 0;
-  }
+  if (value === null || value === undefined || value === "") return 0;
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
 
   const n = Number(String(value).replace(/,/g, "").trim());
-
   return Number.isFinite(n) ? n : 0;
 }
 
-/* Find the matching column */
+/* Find matching Excel column */
 function findColumn(headers, aliases) {
   const normalized = headers.map(normalizeHeader);
 
   for (const alias of aliases) {
     const index = normalized.indexOf(normalizeHeader(alias));
-
-    if (index !== -1) {
-      return index;
-    }
+    if (index !== -1) return index;
   }
-
   return -1;
 }
 
-/* Display current date */
+/* Date */
 function updateReportDate() {
   const today = new Date();
 
-  const date = today.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric"
-  });
-
-  document.getElementById("reportDate").textContent = date;
+  document.getElementById("reportDate").textContent =
+    today.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric"
+    });
 }
-
 updateReportDate();
 
-/* Import Excel file */
-document.getElementById("excelFile").addEventListener(
-  "change",
-  async function(event) {
+/* Dynamic report title */
+function updateReportTitle() {
+  const title = document.getElementById("reportTitle");
 
-    const file = event.target.files[0];
-
-    if (!file) return;
-
-    document.getElementById("fileName").textContent = file.name;
-
-    try {
-
-      if (typeof XLSX === "undefined") {
-        throw new Error(
-          "Excel reader library load కాలేదు. Internet connection check చేసి page refresh చేసి మళ్లీ ప్రయత్నించండి."
-        );
-      }
-
-      const buffer = await file.arrayBuffer();
-
-      const workbook = XLSX.read(buffer, {
-        type: "array"
-      });
-
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-
-      const matrix = XLSX.utils.sheet_to_json(sheet, {
-        header: 1,
-        defval: ""
-      });
-
-      if (!matrix.length) {
-        throw new Error("The selected Excel sheet is empty.");
-      }
-
-      /* Find the row containing the required headers */
-      let headerRowIndex = -1;
-      let map = {};
-
-      for (let r = 0; r < Math.min(matrix.length, 20); r++) {
-
-        const headers = matrix[r].map(
-          v => String(v ?? "")
-        );
-
-        const candidate = {};
-
-        for (const [key, aliases] of Object.entries(columns)) {
-          candidate[key] = findColumn(headers, aliases);
-        }
-
-        if (
-          candidate.school >= 0 &&
-          candidate.udise >= 0 &&
-          candidate.total >= 0 &&
-          candidate.notStarted >= 0 &&
-          candidate.inProgress >= 0 &&
-          candidate.completed >= 0
-        ) {
-          headerRowIndex = r;
-          map = candidate;
-          break;
-        }
-      }
-
-      if (headerRowIndex < 0) {
-        throw new Error(
-          "Required columns not found. Please check the Excel headers: School Name, UDISE Code, Total Students, Not Started, In Progress, Total Completed."
-        );
-      }
-
-      reportRows = [];
-
-      matrix.slice(headerRowIndex + 1).forEach((row, offset) => {
-
-        /* Skip physical Excel row 5 */
-        const excelRowNumber = headerRowIndex + 2 + offset;
-
-        if (excelRowNumber === 5) return;
-
-        const school = String(row[map.school] ?? "").trim();
-        const udise = String(row[map.udise] ?? "").trim();
-
-        if (!school && !udise) return;
-
-        const total = numberValue(row[map.total]);
-        const notStarted = numberValue(row[map.notStarted]);
-        const inProgress = numberValue(row[map.inProgress]);
-        const completed = numberValue(row[map.completed]);
-
-        reportRows.push({
-          school,
-          udise,
-          total,
-          notStarted,
-          inProgress,
-          completed,
-          percentage: total > 0
-            ? (completed / total) * 100
-            : 0
-        });
-
-      });
-
-      /* Lowest completion percentage first */
-      reportRows.sort(
-        (a, b) => a.percentage - b.percentage
-      );
-
-      renderReport();
-
-    } catch (error) {
-
-      reportRows = [];
-
-      document.getElementById("tableArea").className = "empty";
-
-      document.getElementById("tableArea").textContent =
-        error.message || "Unable to read this file.";
-
-      updateSummary();
-    }
+  if (selectedComplex === "All") {
+    title.textContent =
+      "Mandal Level Student Data (GP, EP, FP) Entry Status Report";
+  } else {
+    title.textContent =
+      selectedComplex +
+      " Complex Student Data (GP, EP, FP) Entry Status Report";
   }
-);
+}
 
-/* Format numbers using Indian number system */
+/* Apply Complex Filter */
+function applyComplexFilter() {
+  selectedComplex = document.getElementById("complexSelect").value;
+  renderReport();
+}
+
+/* Get filtered rows */
+function getFilteredRows() {
+  if (selectedComplex === "All") {
+    return reportRows;
+  }
+
+  const allowedCodes = (complexCodes[selectedComplex] || [])
+    .map(normalizeUdise);
+
+  return reportRows.filter(row =>
+    allowedCodes.includes(normalizeUdise(row.udise))
+  );
+}
+
+/* Import Excel */
+document.getElementById("excelFile").addEventListener("change", async function(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  document.getElementById("fileName").textContent = file.name;
+
+  try {
+    if (typeof XLSX === "undefined") {
+      throw new Error("Excel reader library load కాలేదు. Internet connection check చేయండి.");
+    }
+
+    const buffer = await file.arrayBuffer();
+
+    const workbook = XLSX.read(buffer, { type: "array" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+
+    const matrix = XLSX.utils.sheet_to_json(sheet, {
+      header: 1,
+      defval: ""
+    });
+
+    if (!matrix.length) {
+      throw new Error("The selected Excel sheet is empty.");
+    }
+
+    /* Find header row */
+    let headerRowIndex = -1;
+    let map = {};
+
+    for (let r = 0; r < Math.min(matrix.length, 20); r++) {
+      const headers = matrix[r].map(v => String(v ?? ""));
+      const candidate = {};
+
+      for (const [key, aliases] of Object.entries(columns)) {
+        candidate[key] = findColumn(headers, aliases);
+      }
+
+      if (
+        candidate.school >= 0 &&
+        candidate.udise >= 0 &&
+        candidate.total >= 0 &&
+        candidate.notStarted >= 0 &&
+        candidate.inProgress >= 0 &&
+        candidate.completed >= 0
+      ) {
+        headerRowIndex = r;
+        map = candidate;
+        break;
+      }
+    }
+
+    if (headerRowIndex < 0) {
+      throw new Error(
+        "Required columns not found. Check: School Name, UDISE Code, Total Students, Not Started, In Progress, Total Completed."
+      );
+    }
+
+    reportRows = [];
+
+    matrix.slice(headerRowIndex + 1).forEach((row, offset) => {
+      /* Skip physical Excel row 5 */
+      const excelRowNumber = headerRowIndex + 2 + offset;
+      if (excelRowNumber === 5) return;
+
+      const school = String(row[map.school] ?? "").trim();
+      const udise = String(row[map.udise] ?? "").trim();
+
+      if (!school && !udise) return;
+
+      const total = numberValue(row[map.total]);
+      const notStarted = numberValue(row[map.notStarted]);
+      const inProgress = numberValue(row[map.inProgress]);
+      const completed = numberValue(row[map.completed]);
+
+      reportRows.push({
+        school,
+        udise,
+        total,
+        notStarted,
+        inProgress,
+        completed,
+        percentage: total > 0 ? (completed / total) * 100 : 0
+      });
+    });
+
+    /* Lowest percentage first */
+    reportRows.sort((a, b) => a.percentage - b.percentage);
+
+    /* Reset to All Schools after import */
+    selectedComplex = "All";
+    document.getElementById("complexSelect").value = "All";
+
+    renderReport();
+
+  } catch (error) {
+    reportRows = [];
+    document.getElementById("tableArea").className = "empty";
+    document.getElementById("tableArea").textContent =
+      error.message || "Unable to read this file.";
+    updateSummary();
+  }
+});
+
+/* Indian number format */
 function formatNumber(n) {
   return Number(n || 0).toLocaleString("en-IN", {
     maximumFractionDigits: 2
@@ -570,53 +442,37 @@ function percentageClass(p) {
   return "pct-low";
 }
 
-/* Update summary cards */
+/* Summary cards use filtered rows */
 function updateSummary() {
+  const rows = getFilteredRows();
 
-  const total = reportRows.reduce(
-    (s, r) => s + r.total, 0
-  );
+  const total = rows.reduce((s, r) => s + r.total, 0);
+  const ns = rows.reduce((s, r) => s + r.notStarted, 0);
+  const ip = rows.reduce((s, r) => s + r.inProgress, 0);
+  const completed = rows.reduce((s, r) => s + r.completed, 0);
 
-  const ns = reportRows.reduce(
-    (s, r) => s + r.notStarted, 0
-  );
+  const pct = total > 0 ? completed / total * 100 : 0;
 
-  const ip = reportRows.reduce(
-    (s, r) => s + r.inProgress, 0
-  );
-
-  const completed = reportRows.reduce(
-    (s, r) => s + r.completed, 0
-  );
-
-  const pct = total > 0
-    ? completed / total * 100
-    : 0;
-
-  document.getElementById("sumStudents").textContent =
-    formatNumber(total);
-
-  document.getElementById("sumNotStarted").textContent =
-    formatNumber(ns);
-
-  document.getElementById("sumInProgress").textContent =
-    formatNumber(ip);
-
-  document.getElementById("sumPercentage").textContent =
-    pct.toFixed(2) + "%";
+  document.getElementById("sumStudents").textContent = formatNumber(total);
+  document.getElementById("sumNotStarted").textContent = formatNumber(ns);
+  document.getElementById("sumInProgress").textContent = formatNumber(ip);
+  document.getElementById("sumPercentage").textContent = pct.toFixed(2) + "%";
 }
 
-/* Render the school-wise report */
+/* Render report */
 function renderReport() {
-
+  updateReportTitle();
   updateSummary();
 
-  if (!reportRows.length) {
+  const rows = getFilteredRows();
 
+  if (!rows.length) {
     document.getElementById("tableArea").className = "empty";
 
     document.getElementById("tableArea").textContent =
-      "No school records found in the selected sheet.";
+      reportRows.length === 0
+        ? "Import your Excel file to display the school-wise report."
+        : "No school records found for the selected Complex.";
 
     return;
   }
@@ -639,15 +495,14 @@ function renderReport() {
         <tbody>
   `;
 
-  let totals = {
+  const totals = {
     total: 0,
     notStarted: 0,
     inProgress: 0,
     completed: 0
   };
 
-  reportRows.forEach((r, i) => {
-
+  rows.forEach((r, i) => {
     totals.total += r.total;
     totals.notStarted += r.notStarted;
     totals.inProgress += r.inProgress;
@@ -682,9 +537,7 @@ function renderReport() {
             <td>${formatNumber(totals.notStarted)}</td>
             <td>${formatNumber(totals.inProgress)}</td>
             <td>${formatNumber(totals.completed)}</td>
-            <td class="${percentageClass(totalPct)}">
-              ${totalPct.toFixed(2)}%
-            </td>
+            <td class="${percentageClass(totalPct)}">${totalPct.toFixed(2)}%</td>
           </tr>
         </tfoot>
       </table>
@@ -692,11 +545,10 @@ function renderReport() {
   `;
 
   document.getElementById("tableArea").className = "";
-
   document.getElementById("tableArea").innerHTML = html;
 }
 
-/* Escape HTML to prevent invalid table content */
+/* Escape HTML */
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, ch => ({
     "&": "&amp;",
@@ -707,15 +559,16 @@ function escapeHtml(value) {
   })[ch]);
 }
 
-/* Download CSV */
+/* Download filtered CSV */
 function downloadCsv() {
+  const rows = getFilteredRows();
 
-  if (!reportRows.length) {
-    alert("Please import an Excel file first.");
+  if (!rows.length) {
+    alert("No records available to download.");
     return;
   }
 
-  const rows = [[
+  const csvRows = [[
     "S.No",
     "School Name",
     "UDISE Code",
@@ -726,9 +579,8 @@ function downloadCsv() {
     "Percentage"
   ]];
 
-  reportRows.forEach((r, i) => {
-
-    rows.push([
+  rows.forEach((r, i) => {
+    csvRows.push([
       i + 1,
       r.school,
       r.udise,
@@ -738,39 +590,36 @@ function downloadCsv() {
       r.completed,
       r.percentage.toFixed(2) + "%"
     ]);
-
   });
 
-  const csv = rows.map(row =>
-    row.map(v =>
-      `"${String(v).replace(/"/g, '""')}"`
-    ).join(",")
+  const csv = csvRows.map(row =>
+    row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")
   ).join("\r\n");
 
-  const blob = new Blob(
-    ["\uFEFF" + csv],
-    { type: "text/csv;charset=utf-8;" }
-  );
+  const blob = new Blob(["\uFEFF" + csv], {
+    type: "text/csv;charset=utf-8;"
+  });
 
   const url = URL.createObjectURL(blob);
-
   const a = document.createElement("a");
 
   a.href = url;
-  a.download = "Student_Data_Entry_Status_Report.csv";
+  a.download =
+    (selectedComplex === "All" ? "Mandal_Level" : selectedComplex + "_Complex") +
+    "_Student_Data_Entry_Status_Report.csv";
 
   document.body.appendChild(a);
   a.click();
   a.remove();
-
   URL.revokeObjectURL(url);
 }
 
-/* Download complete report as PNG image */
+/* Download filtered report as PNG */
 async function downloadImage() {
+  const rows = getFilteredRows();
 
-  if (!reportRows.length) {
-    alert("Please import an Excel file first.");
+  if (!rows.length) {
+    alert("No records available to download.");
     return;
   }
 
@@ -782,61 +631,38 @@ async function downloadImage() {
   const report = document.getElementById("reportPage");
 
   try {
-
     const canvas = await html2canvas(report, {
-
       scale: 2,
       backgroundColor: "#ffffff",
       useCORS: true,
-
-      // Capture full report dimensions
       width: report.scrollWidth,
       height: report.scrollHeight,
-
       windowWidth: report.scrollWidth,
       windowHeight: report.scrollHeight,
-
       scrollX: 0,
       scrollY: 0,
 
-      // Avoid mobile browser viewport rotation
       onclone: function(clonedDocument) {
+        const clonedPage = clonedDocument.getElementById("reportPage");
 
-        const clonedPage =
-          clonedDocument.getElementById("reportPage");
-
-        clonedPage.style.width =
-          report.scrollWidth + "px";
-
+        clonedPage.style.width = report.scrollWidth + "px";
         clonedPage.style.maxWidth = "none";
         clonedPage.style.margin = "0";
         clonedPage.style.padding = "10px";
         clonedPage.style.background = "#ffffff";
 
-        const toolbar =
-          clonedPage.querySelector(".toolbar");
+        const toolbar = clonedPage.querySelector(".toolbar");
+        const filter = clonedPage.querySelector(".complex-filter");
+        const note = clonedPage.querySelector(".note");
 
-        const note =
-          clonedPage.querySelector(".note");
+        if (toolbar) toolbar.style.display = "none";
+        if (filter) filter.style.display = "none";
+        if (note) note.style.display = "none";
 
-        if (toolbar) {
-          toolbar.style.display = "none";
-        }
+        const tableWrap = clonedPage.querySelector(".table-wrap");
+        if (tableWrap) tableWrap.style.overflow = "visible";
 
-        if (note) {
-          note.style.display = "none";
-        }
-
-        const tableWrap =
-          clonedPage.querySelector(".table-wrap");
-
-        if (tableWrap) {
-          tableWrap.style.overflow = "visible";
-        }
-
-        const table =
-          clonedPage.querySelector("table");
-
+        const table = clonedPage.querySelector("table");
         if (table) {
           table.style.width = "100%";
           table.style.minWidth = "0";
@@ -844,42 +670,23 @@ async function downloadImage() {
       }
     });
 
-    // Create a new horizontal canvas
-    const outputCanvas = document.createElement("canvas");
-
-    outputCanvas.width = canvas.width;
-    outputCanvas.height = canvas.height;
-
-    const ctx = outputCanvas.getContext("2d");
-
-    // Draw without rotating the original image
-    ctx.drawImage(
-      canvas,
-      0,
-      0,
-      canvas.width,
-      canvas.height
-    );
-
     const link = document.createElement("a");
 
     link.download =
-      "Student_Data_Entry_Status_Report.png";
+      (selectedComplex === "All" ? "Mandal_Level" : selectedComplex + "_Complex") +
+      "_Student_Data_Entry_Status_Report.png";
 
-    link.href = outputCanvas.toDataURL("image/png");
+    link.href = canvas.toDataURL("image/png");
 
     document.body.appendChild(link);
     link.click();
     link.remove();
 
   } catch (error) {
-
     console.error(error);
-
     alert("Image download failed. Please try again.");
   }
 }
 </script>
-
 </body>
 </html>
